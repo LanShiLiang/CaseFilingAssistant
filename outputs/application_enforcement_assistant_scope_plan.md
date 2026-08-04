@@ -1,5 +1,7 @@
 # Mainland China Legal-Document Assistant: Product Scope and Implementation Plan
 
+Update note (2026-08-05): the current MVP is a local self-service tool limited to one enforcement applicant, one respondent, and no representative. P0 excludes login, lawyer workspaces, complex party relationships, generative AI, mobile web, WeChat Mini Program, cloud storage, and court-platform integration. The v0.4 Chinese product, frontend, and backend plans are the implementation source of truth; actor-mode selection, complex roles, and AI assistance are retained only as second-version planning.
+
 ## 1. Purpose
 
 Build a legal-document assistant focused exclusively on Mainland China legal and judicial rules. The initial MVP helps users generate a draft-only application-for-enforcement material package from uploaded legal documents for submission to a Mainland China people's court by the user or their authorized representative.
@@ -49,8 +51,8 @@ Source governance requirements:
 
 ### Included
 
-- Secure matter workspace for one application-for-enforcement matter.
-- Jurisdiction selection at least to province/city/court level when known.
+- Local matter workspace for one application-for-enforcement matter.
+- Optional target-court selection when known, with nationwide baseline rules available even when no local rules pack exists.
 - Enforcement scenario selection, initially:
   - Domestic people's court civil judgment, ruling, or mediation statement.
   - Domestic arbitral award or mediation document, if included in the first approved rules pack.
@@ -219,7 +221,7 @@ Each rules pack should be court/scenario specific where needed and include:
 
 ### Phase 0: Mainland China Scope Lock
 
-- Choose the first province/city/court and first enforcement scenario.
+- Confirm the nationwide baseline and first enforcement scenario without limiting MVP to a pilot province, city, or court.
 - Collect official national law, SPC, and local court source materials.
 - Define the authority registry schema and source refresh process.
 - Define legal-review owner for templates and rules packs.
@@ -272,14 +274,14 @@ Each rules pack should be court/scenario specific where needed and include:
 6. Build extracted-fact review UI with source-page viewer.
 7. Create authority registry service.
 8. Create first Mainland China rules-pack format.
-9. Create first court/scenario `强制执行申请书` template.
+9. Create the first nationwide-baseline `强制执行申请书` template.
 10. Implement rules-pack checklist and validation engine.
 11. Build amount-calculation worksheet.
 12. Build DOCX/PDF assembly service.
 13. Build exhibit/materials index generation.
 14. Add audit events for uploads, review, generation, rule-pack use, and export.
 15. Create synthetic Chinese test set and evaluation harness.
-16. Add role-based access, identity-document handling controls, and security logging.
+16. Add local audit events, identity-document handling controls, and security logging; defer role-based access to the platform phase.
 
 ## 13. Quality and Testing Plan
 
@@ -294,7 +296,7 @@ Each rules pack should be court/scenario specific where needed and include:
 
 ## 14. Key Decisions Needed
 
-- First province/city/court for MVP.
+- Whether any local court rules pack should be bundled as an optional overlay; MVP should not be limited to one province, city, or court.
 - First enforcement scenario: domestic civil judgment/ruling/mediation statement only, or include domestic arbitral awards.
 - Target users: individuals, enterprises, law firms, in-house legal teams, or collection teams.
 - Whether attorney/legal-reviewer approval is required before export in the first release.
