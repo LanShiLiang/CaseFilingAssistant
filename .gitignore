@@ -10,7 +10,9 @@
 # User uploads and generated legal documents
 uploads/
 storage/
+data/
 generated/
+generated-documents/
 exports/
 redaction-cache/
 ocr-cache/
@@ -20,12 +22,17 @@ work/
 
 # JavaScript / TypeScript
 node_modules/
+.pnpm-store/
+.npm/
 .next/
 dist/
 build/
 coverage/
 .turbo/
 .taro/
+*.tsbuildinfo
+test-results/
+playwright-report/
 
 # Python
 __pycache__/
@@ -33,8 +40,12 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.uv-cache/
 .venv/
 venv/
+.coverage
+htmlcov/
+.hypothesis/
 
 # Logs and temporary files
 *.log
@@ -42,6 +53,7 @@ logs/
 tmp/
 temp/
 *.tmp
+.artifacts/
 
 # IDE and OS files
 .idea/

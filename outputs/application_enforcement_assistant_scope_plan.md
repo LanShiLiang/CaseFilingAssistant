@@ -1,6 +1,6 @@
 # Mainland China Legal-Document Assistant: Product Scope and Implementation Plan
 
-Update note (2026-08-05): the current MVP is a local self-service tool limited to one enforcement applicant, one respondent, and no representative. P0 excludes login, lawyer workspaces, complex party relationships, generative AI, mobile web, WeChat Mini Program, cloud storage, and court-platform integration. The v0.4 Chinese product, frontend, and backend plans are the implementation source of truth; actor-mode selection, complex roles, and AI assistance are retained only as second-version planning.
+Update note (2026-08-06): the current MVP is a local self-service tool limited to one enforcement applicant, one respondent, and no representative. Desktop Web is the visual and efficiency baseline, while the same application keeps the four-step core flow usable on mobile Web. P0 excludes login, lawyer workspaces, complex party relationships, generative AI, WeChat Mini Program, cloud storage, and court-platform integration. The v0.5 Chinese product, frontend, and backend plans are the implementation source of truth; actor-mode selection, complex roles, Mini Program support, and AI assistance are retained only as later planning.
 
 ## 1. Purpose
 

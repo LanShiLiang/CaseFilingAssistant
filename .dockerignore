@@ -1,0 +1,76 @@
+# Repository metadata and research inputs
+.git/
+.github/
+.agents/
+.codex/
+outputs/
+work/
+canva-build/
+README.md
+AGENTS.md
+**/*.md
+**/*.pptx
+**/*design*.html
+
+# Secrets and local configuration
+.env
+.env.*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+
+# User data and generated legal artifacts
+data/
+uploads/
+storage/
+generated/
+generated-documents/
+exports/
+redaction-cache/
+ocr-cache/
+*.local.docx
+*.local.pdf
+
+# JavaScript / TypeScript dependencies and outputs
+**/node_modules/
+**/.next/
+**/dist/
+**/build/
+**/coverage/
+**/.turbo/
+**/.taro/
+**/.pnpm-store/
+**/*.tsbuildinfo
+
+# Python environments, caches and reports
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.uv-cache/
+**/.venv/
+**/venv/
+**/.coverage
+**/htmlcov/
+
+# Tests and local reports are builder inputs only when explicitly copied
+**/test-results/
+**/playwright-report/
+**/.artifacts/
+
+# Logs, temporary and editor files
+**/*.log
+**/logs/
+**/tmp/
+**/temp/
+**/*.tmp
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Future client is outside the MVP Web build graph
+apps/miniprogram/

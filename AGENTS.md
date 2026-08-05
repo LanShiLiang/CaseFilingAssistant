@@ -25,25 +25,34 @@
 
 ## 工程结构
 
-- `apps/web`：桌面 Web 与移动 Web 应用。
-- `apps/miniprogram`：微信小程序应用。
-- `services/api`：后端 API、任务编排、OCR、规则校验和文书生成服务。
-- `packages/contracts`：跨端共享的数据契约、Schema 和类型定义。
+- `apps/web`：MVP 的同一套桌面 Web 与响应式移动 Web；桌面是视觉和效率基准。
+- `apps/miniprogram`：未来微信小程序方向；MVP 中仅占位，不参与默认构建、测试或发布。
+- `services/api`：单一 Python 项目；API、worker、迁移通过独立入口复用领域、迁移、规则、模板和依赖锁，不创建第二套 `services/worker`。
+- `packages/contracts`：OpenAPI 快照、生成类型、稳定错误码和无 UI 协议工具。
+- `packages/design-tokens`：跨端纯数据 token，不包含 DOM 或案件领域模型。
+- `packages/ui`：Web/DOM 通用组件，不直接复用到微信小程序。
 - `infra`：容器、部署、监控和环境配置。
-- `outputs`：已确认的产品与技术方案文档。
+- `outputs`：产品、设计、技术和架构研发输入；不得作为运行依赖或进入镜像、安装包、发布压缩包。
 
 ## 实施原则
 
 - 开始实现前先阅读 `README.md` 和 `outputs` 中与任务相关的方案。
+- 仓库当前处于方案与工程初始化阶段；在代码、锁文件、迁移、健康检查、测试和制品审计真正落地前，不得创建伪装可运行的 Compose/package/Dockerfile，也不得宣称可以一键启动。
 - 优先沿用仓库既有技术栈、目录边界和共享契约，避免无关重构。
 - 文书生成必须采用结构化字段、确定性模板和版本化规则，不允许仅依赖自由文本生成。
 - OCR、模型抽取和规则匹配结果必须包含来源位置、置信度和人工确认状态。
-- 桌面 Web 是 MVP 的基准体验，同时必须保证移动 Web 和微信小程序的核心流程一致。
+- 桌面 Web 是 MVP 的基准体验；移动 Web 必须用同一业务流程完成核心闭环。微信小程序是后续实现，届时保持适用门禁、来源、确认、阻断和草稿边界一致，但不得直接复用 DOM UI 或在小程序端复制服务端法律规则。
+- 前后端契约以 OpenAPI 为来源，生成客户端禁止手改；服务端是适用范围、revision、校验和生成门禁的唯一权威。
+- API、worker、migrate 使用同一 Python package 和 frozen lock；MVP 不为 worker 复制领域模型、schema、迁移、规则或模板。
+- 生产构建采用 build-context denylist 与最终 runner allowlist 双层隔离；禁止先复制整个仓库再删除 `outputs`。
 - 修改共享契约、文书模板、规则引擎或隐私处理逻辑时，应增加针对性测试。
 
 ## 交付与验证
 
 - 提交前运行与变更范围匹配的格式检查、类型检查和测试。
+- 提交前检查 `git status --short`、`git diff --check` 和 staged diff；不得覆盖或清理他人未提交改动。
 - 生成 DOCX 或 PDF 时必须进行渲染和视觉核验，检查分页、表格、字体、页眉页脚及字段溢出。
+- 容器或发布物变更必须列出最终文件并运行 artifact audit，确认不含 `outputs/`、设计/需求方案、测试材料、本地案件数据、secret 或本机绝对路径。
+- 一键启动目标为 `docker compose up --build`；只有 PostgreSQL 健康、一次性迁移、API/worker/Web 健康链路、持久化恢复、E2E 和制品门禁全部通过后才可标记为可用。
 - 最终报告应列出变更文件、验证结果、未完成风险和需要人工确认的事项。
 - 不得把本地生成的案件文书或用户上传材料作为演示文件提交到仓库。

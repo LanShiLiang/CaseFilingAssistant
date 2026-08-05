@@ -1,3 +1,11 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Case Filing Assistant 设计稿</title>
+</head>
+<body>
 <div id="cfa-design-review">
   <style>
     #cfa-design-review {
@@ -559,15 +567,16 @@
           <header class="cfa-page-head"><div><h1>添加当事人与执行依据</h1><p>先上传执行依据，再核对系统提取的案号、当事人和申请内容候选。</p></div><span class="cfa-status" data-facts-status>等待执行依据</span></header>
           <div class="cfa-form-stack">
             <section class="cfa-form-section" data-component="UploadField" data-basis-section>
-              <div class="cfa-form-head"><div><h2>1. 执行依据</h2><p>上传民事调解书或民事判决书后，案号才会成为当前事项标题。</p></div><span class="cfa-status" data-basis-status>待上传</span></div>
+              <div class="cfa-form-head"><div><h2>1. 执行依据</h2><p>上传民事调解书或民事判决书并人工确认案号后，案号才会成为当前事项标题。</p></div><span class="cfa-status" data-basis-status>待上传</span></div>
               <article class="cfa-upload-slot" aria-label="待上传执行依据" data-basis-upload><span class="cfa-upload-slot-icon" data-basis-icon><i data-lucide="file-up" aria-hidden="true"></i></span><div><strong data-basis-name>上传执行依据</strong><p data-basis-description>PDF、DOCX、JPG、PNG · 文件仅在本机处理</p></div><div class="cfa-action-group" data-basis-actions><button class="cfa-btn cfa-btn-primary" type="button" data-upload-basis>选择文件</button></div><div class="cfa-upload-progress" data-upload-progress hidden><span></span></div></article>
               <p class="cfa-help">支持 PDF、DOCX、JPG、PNG；扫描件将在本机进行 OCR。无法识别时可以查看原文并手工填写。</p>
               <div class="cfa-form-grid cfa-form-grid-three" data-after-basis hidden>
-                <div class="cfa-field"><label for="doc-type">文书类型</label><select id="doc-type"><option>民事调解书</option><option>民事判决书</option></select><span class="cfa-field-foot"><span>材料提取</span><span class="cfa-status cfa-status-success">已确认</span></span></div>
-                <div class="cfa-field"><label for="case-number">案号 <span class="cfa-field-source"><button type="button" data-source="case">来源</button></span></label><input id="case-number" value="（2026）示例民初 001 号"><span class="cfa-field-foot"><span>第 1 页</span><span class="cfa-status cfa-status-success">已确认</span></span></div>
-                <div class="cfa-field"><label for="doc-date">文书日期</label><input id="doc-date" value="2026-07-18"><span class="cfa-field-foot"><span>材料提取</span><span class="cfa-status cfa-status-success">已确认</span></span></div>
-                <div class="cfa-field cfa-field-wide"><label for="court-name">作出法院 <span class="cfa-field-source"><button type="button" data-source="case">来源</button></span></label><input id="court-name" value="示例市示例区人民法院"><span class="cfa-field-foot"><span>第 1 页</span><span class="cfa-status cfa-status-success">已确认</span></span></div>
+                <div class="cfa-field"><label for="doc-type">文书类型</label><select id="doc-type"><option>民事调解书</option><option>民事判决书</option></select><span class="cfa-field-foot"><span>材料提取</span><span class="cfa-status cfa-status-warning" data-basis-field-status>已提取待确认</span></span></div>
+                <div class="cfa-field"><label for="case-number">案号 <span class="cfa-field-source"><button type="button" data-source="case">来源</button></span></label><input id="case-number" value="（2026）示例民初 001 号"><span class="cfa-field-foot"><span>第 1 页</span><span class="cfa-status cfa-status-warning" data-basis-field-status>已提取待确认</span></span></div>
+                <div class="cfa-field"><label for="doc-date">文书日期</label><input id="doc-date" value="2026-07-18"><span class="cfa-field-foot"><span>材料提取</span><span class="cfa-status cfa-status-warning" data-basis-field-status>已提取待确认</span></span></div>
+                <div class="cfa-field cfa-field-wide"><label for="court-name">作出法院 <span class="cfa-field-source"><button type="button" data-source="case">来源</button></span></label><input id="court-name" value="示例市示例区人民法院"><span class="cfa-field-foot"><span>第 1 页</span><span class="cfa-status cfa-status-warning" data-basis-field-status>已提取待确认</span></span></div>
               </div>
+              <div class="cfa-confirm-band"><span data-basis-confirm-gate>请核对案号、文书类型、日期与作出法院</span><button class="cfa-btn cfa-btn-primary" type="button" data-confirm-basis><i data-lucide="check" aria-hidden="true"></i>确认执行依据信息</button></div>
             </section>
             <section class="cfa-form-section" data-component="PartyIdentitySection" data-applicant-section data-after-basis hidden>
               <div class="cfa-form-head"><div><h2>2. 申请执行人</h2><p>请分别上传身份证正反面；识别结果仅作为候选，需由你确认。</p></div><span class="cfa-status cfa-status-warning" data-applicant-status>待上传身份证</span></div>
@@ -578,7 +587,7 @@
               <div class="cfa-form-grid">
                 <div class="cfa-field"><label for="applicant-name">姓名 <span class="cfa-field-source"><i data-lucide="scan-text" aria-hidden="true"></i><button type="button" data-source="applicant" data-applicant-source disabled>来源</button></span></label><input id="applicant-name" data-applicant-field placeholder="上传身份证正反面后识别" disabled><span class="cfa-field-foot"><span data-applicant-field-source>等待身份证</span><span class="cfa-status cfa-status-warning" data-applicant-field-status>待识别</span></span></div>
                 <div class="cfa-field"><label for="applicant-id">身份证号 <span class="cfa-field-source"><i data-lucide="scan-text" aria-hidden="true"></i><button type="button" data-source="applicant" data-applicant-source disabled>来源</button></span></label><input id="applicant-id" data-applicant-field placeholder="上传身份证正反面后识别" disabled><span class="cfa-field-foot"><button class="cfa-btn cfa-btn-link" type="button" aria-label="查看申请执行人身份证号明文" disabled><i data-lucide="eye" aria-hidden="true"></i>查看明文</button><span class="cfa-status cfa-status-warning" data-applicant-field-status>待识别</span></span></div>
-                <div class="cfa-field cfa-field-wide"><label for="applicant-address">送达地址</label><input id="applicant-address" data-applicant-field placeholder="识别后可修改" disabled><span class="cfa-field-foot"><span data-applicant-field-source>等待身份证</span><span class="cfa-status cfa-status-warning" data-applicant-field-status>待识别</span></span></div>
+                <div class="cfa-field cfa-field-wide"><label for="applicant-address">身份证记载住址（仅供核对）</label><input id="applicant-address" data-applicant-field placeholder="上传身份证后识别，不自动作为送达地址" disabled><span class="cfa-field-foot"><span data-applicant-field-source>等待身份证</span><span class="cfa-status cfa-status-warning" data-applicant-field-status>待识别</span></span></div>
               </div>
               <div class="cfa-confirm-band"><span data-applicant-gate>请先上传身份证正反面</span><button class="cfa-btn cfa-btn-primary" type="button" data-confirm-applicant disabled><i data-lucide="check" aria-hidden="true"></i>确认申请执行人信息</button></div>
             </section>
@@ -645,12 +654,13 @@
               <div class="cfa-form-grid">
                 <div class="cfa-field"><label for="filing-court">申请法院</label><input id="filing-court" placeholder="请手工选择或填写有管辖权的法院"><span class="cfa-field-foot"><span>用户填写，不自动等同于作出法院</span><span class="cfa-status cfa-status-warning">待填写</span></span></div>
                 <div class="cfa-field"><label for="phone">联系电话</label><input id="phone" value="138••••0000"><span class="cfa-field-foot"><span>用户填写</span><span class="cfa-status cfa-status-success">已确认</span></span></div>
+                <div class="cfa-field cfa-field-wide"><label for="service-address">送达地址</label><input id="service-address" placeholder="请手工填写并确认；不会自动采用身份证住址"><span class="cfa-field-foot"><span>用户填写；如复制证件住址仍需单独确认</span><span class="cfa-status cfa-status-warning">待填写</span></span></div>
                 <div class="cfa-field cfa-field-wide"><label for="bank-account">收款账户</label><input id="bank-account" placeholder="开户名 / 开户行 / 账号（默认脱敏）"></div>
                 <div class="cfa-field cfa-field-wide"><label for="property-clue">已知财产线索（选填）</label><textarea id="property-clue" placeholder="只填写你已知并确认的信息"></textarea></div>
               </div>
             </section>
           </div>
-          <div class="cfa-page-actions"><button class="cfa-btn" type="button" data-go="facts"><i data-lucide="arrow-left" aria-hidden="true"></i>返回当事人与依据</button><div><span class="cfa-help" data-application-gate>请确认金额、请求事项并填写申请法院</span> <button class="cfa-btn cfa-btn-primary" type="button" data-go="review" data-proceed-review disabled>保存并运行检查 <i data-lucide="shield-check" aria-hidden="true"></i></button></div></div>
+          <div class="cfa-page-actions"><button class="cfa-btn" type="button" data-go="facts"><i data-lucide="arrow-left" aria-hidden="true"></i>返回当事人与依据</button><div><span class="cfa-help" data-application-gate>请确认金额、请求事项并填写申请法院与送达地址</span> <button class="cfa-btn cfa-btn-primary" type="button" data-go="review" data-proceed-review disabled>保存并运行检查 <i data-lucide="shield-check" aria-hidden="true"></i></button></div></div>
         </main>
         <aside class="cfa-context" aria-label="义务来源">
           <div class="cfa-context-head"><div><h2 data-source-title>义务来源</h2><span class="cfa-caption" data-source-meta>民事调解书 · 第 5 页</span></div><span class="cfa-status cfa-status-warning">人工确认</span></div>
@@ -770,9 +780,9 @@
           <section class="cfa-spec-block"><h2>操作层级</h2><div class="cfa-pattern-row"><button class="cfa-btn cfa-btn-primary" type="button">主要操作</button><button class="cfa-btn" type="button">次要操作</button><button class="cfa-btn cfa-btn-link" type="button">文字操作</button><button class="cfa-btn cfa-btn-danger" type="button">风险操作</button><button class="cfa-btn" type="button" disabled>不可用</button></div><p class="cfa-help">每组只保留一个主要操作；下载、生成受版本与人工确认门禁控制。</p></section>
           <section class="cfa-spec-block"><h2>字段模式</h2><div class="cfa-field"><label for="pattern-field">案号 <span class="cfa-field-source"><i data-lucide="scan-text" aria-hidden="true"></i><button type="button">查看来源</button></span></label><input id="pattern-field" value="（2026）示例民初 001 号"><span class="cfa-field-foot"><span>民事调解书 · 第 1 页</span><span class="cfa-status cfa-status-success">已确认</span></span></div></section>
           <section class="cfa-spec-block"><h2>问题优先级</h2><div class="cfa-pattern-stack"><div class="cfa-boundary-note" style="border-left-color:var(--cfa-danger);background:var(--cfa-danger-soft)"><i data-lucide="octagon-x" aria-hidden="true"></i><span><strong>阻断：</strong>必须修正，不提供忽略继续。</span></div><div class="cfa-boundary-note" style="border-left-color:var(--cfa-warning);background:var(--cfa-warning-soft)"><i data-lucide="triangle-alert" aria-hidden="true"></i><span><strong>警告：</strong>允许继续，但要求人工核对。</span></div><div class="cfa-boundary-note" style="border-left-color:var(--cfa-brand);background:var(--cfa-surface-soft)"><i data-lucide="info" aria-hidden="true"></i><span><strong>提示：</strong>说明草稿与外部操作边界。</span></div></div></section>
-          <section class="cfa-spec-block"><h2>布局规则</h2><div class="cfa-pattern-stack"><span><strong>顶部：</strong>事项、保存状态、数据版本、本地运行状态</span><span><strong>左侧：</strong>四步流程与完成状态</span><span><strong>中央：</strong>当前任务和唯一主要操作</span><span><strong>右侧：</strong>材料来源、问题或文书预览</span><span><strong>窄屏：</strong>右侧转抽屉，四步导航压缩；不承诺完整移动体验</span></div></section>
+          <section class="cfa-spec-block"><h2>布局规则</h2><div class="cfa-pattern-stack"><span><strong>顶部：</strong>事项、保存状态、数据版本、本地运行状态</span><span><strong>左侧：</strong>四步流程与完成状态</span><span><strong>中央：</strong>当前任务和唯一主要操作</span><span><strong>右侧：</strong>材料来源、问题或文书预览</span><span><strong>窄屏：</strong>右侧转抽屉或弹窗，四步导航压缩；移动 Web 保持同一流程，可完成上传、核对、预览和导出</span></div></section>
           <section class="cfa-spec-block"><h2>材料与候选状态</h2><div class="cfa-pattern-row"><span class="cfa-status">待上传</span><span class="cfa-status cfa-status-info">上传中</span><span class="cfa-status cfa-status-info">OCR 中</span><span class="cfa-status cfa-status-warning">已提取待确认</span><span class="cfa-status cfa-status-success">用户已确认</span><span class="cfa-status cfa-status-warning">低质量</span><span class="cfa-status cfa-status-danger">失败重试</span><span class="cfa-status cfa-status-danger">失效待重确认</span></div><p class="cfa-help">关键字段统一遵循：待上传 → 处理中 → 已提取待确认 → 用户已确认/已修改；来源或数据变化后进入“失效待重确认”。</p></section>
-          <section class="cfa-spec-block"><h2>可复用组件</h2><div class="cfa-component-map"><div class="cfa-component-item"><code>AppHeader</code><span>工作台／待上传／已识别案号</span></div><div class="cfa-component-item"><code>StepNavigation</code><span>默认／当前／完成／禁用</span></div><div class="cfa-component-item"><code>EligibilityGate</code><span>1–4 条件／单一确认门禁</span></div><div class="cfa-component-item"><code>UploadField</code><span>待上传／处理中／完成／失败</span></div><div class="cfa-component-item"><code>PartyIdentitySection</code><span>正反面上传／识别候选／人工确认</span></div><div class="cfa-component-item"><code>SourceField</code><span>候选／确认／失效</span></div><div class="cfa-component-item"><code>StatusBadge</code><span>中性／信息／成功／警告／阻断</span></div><div class="cfa-component-item"><code>ActionButton</code><span>主操作／次操作／文字／风险</span></div><div class="cfa-component-item"><code>ConfirmBand</code><span>计算确认／身份确认／流程门禁</span></div><div class="cfa-component-item"><code>IssueRow</code><span>阻断／警告／提示</span></div><div class="cfa-component-item"><code>SourceDialog</code><span>桌面侧栏／窄屏弹窗</span></div><div class="cfa-component-item"><code>DocumentPreview</code><span>等待生成／当前版本／已失效</span></div><div class="cfa-component-item"><code>DownloadRow</code><span>锁定／可下载／版本一致</span></div><div class="cfa-component-item"><code>VersionStrip</code><span>待确认／一致／失效</span></div></div></section>
+          <section class="cfa-spec-block"><h2>可复用组件</h2><div class="cfa-component-map"><div class="cfa-component-item"><code>AppHeader</code><span>工作台／待上传／案号待确认／已确认案号</span></div><div class="cfa-component-item"><code>StepNavigation</code><span>默认／当前／完成／禁用</span></div><div class="cfa-component-item"><code>EligibilityGate</code><span>1–4 条件／单一确认门禁</span></div><div class="cfa-component-item"><code>UploadField</code><span>待上传／处理中／完成／失败</span></div><div class="cfa-component-item"><code>PartyIdentitySection</code><span>正反面上传／识别候选／人工确认</span></div><div class="cfa-component-item"><code>SourceField</code><span>候选／确认／失效</span></div><div class="cfa-component-item"><code>StatusBadge</code><span>中性／信息／成功／警告／阻断</span></div><div class="cfa-component-item"><code>ActionButton</code><span>主操作／次操作／文字／风险</span></div><div class="cfa-component-item"><code>ConfirmBand</code><span>计算确认／身份确认／流程门禁</span></div><div class="cfa-component-item"><code>IssueRow</code><span>阻断／警告／提示</span></div><div class="cfa-component-item"><code>SourceDialog</code><span>桌面侧栏／窄屏弹窗</span></div><div class="cfa-component-item"><code>DocumentPreview</code><span>等待生成／当前版本／已失效</span></div><div class="cfa-component-item"><code>DownloadRow</code><span>锁定／可下载／版本一致</span></div><div class="cfa-component-item"><code>VersionStrip</code><span>待确认／一致／失效</span></div></div></section>
           <section class="cfa-spec-block"><h2>动效基准</h2><div class="cfa-motion-list"><div class="cfa-motion-row"><strong>反馈 140ms</strong><span class="cfa-help">按钮按压、悬停、焦点与状态标签切换。</span></div><div class="cfa-motion-row"><strong>状态 220ms</strong><span class="cfa-help">Header 标题替换、步骤推进、来源高亮与弹窗进入。</span></div><div class="cfa-motion-row"><strong>流程 420ms</strong><span class="cfa-help">上传完成、内容展开、预览生成；使用位移与透明度共同表达因果。</span></div><div class="cfa-motion-row"><strong>可访问性</strong><span class="cfa-help">系统开启“减少动态效果”后，全部动效降为即时状态切换。</span></div></div></section>
         </div>
       </main>
@@ -794,6 +804,7 @@
       const caseNumber = '（2026）示例民初 001 号';
       let basisUploaded = false;
       let basisProcessing = false;
+      let basisConfirmed = false;
       let currentMatterState = 'pending';
       const identityUploads = { 'applicant-front': false, 'applicant-back': false, 'respondent-front': false, 'respondent-back': false };
       let applicantConfirmed = false;
@@ -812,7 +823,8 @@
 
       function headerFor(name) {
         if (name === 'facts') {
-          if (basisUploaded) return { label: '当前事项', title: caseNumber, meta: '已识别 · 数据版本 1' };
+          if (basisConfirmed) return { label: '当前事项', title: caseNumber, meta: '案号已确认 · 数据版本 1' };
+          if (basisUploaded) return { label: '当前事项', title: '案号待确认', meta: '已识别 · 待人工确认' };
           if (basisProcessing) return { label: '当前事项', title: '正在识别执行依据', meta: '本机处理中' };
           return { label: '当前事项', title: '待上传执行依据', meta: '新事项 · 自动保存' };
         }
@@ -862,9 +874,10 @@
         if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
       }
 
-      function setBasisState(uploaded, animate = true) {
+      function setBasisState(uploaded, animate = true, confirmed = false) {
         basisUploaded = uploaded;
         basisProcessing = false;
+        basisConfirmed = Boolean(uploaded && confirmed);
         currentMatterState = uploaded ? 'uploaded' : 'pending';
         const slot = root.querySelector('[data-basis-upload]');
         const icon = root.querySelector('[data-basis-icon]');
@@ -911,10 +924,33 @@
           traceStatus.textContent = uploaded ? '可追溯' : '待上传';
           traceStatus.className = uploaded ? 'cfa-status cfa-status-success' : 'cfa-status';
         }
+        updateBasisConfirmationUI();
         updateFactsGate();
         refreshIcons();
         const current = root.querySelector('[data-view="facts"]');
         if (current && !current.hidden) updateHeader('facts');
+      }
+
+      function updateBasisConfirmationUI() {
+        root.querySelectorAll('[data-basis-field-status]').forEach((node) => {
+          node.textContent = basisConfirmed ? '用户已确认' : '已提取待确认';
+          node.className = basisConfirmed ? 'cfa-status cfa-status-success' : 'cfa-status cfa-status-warning';
+        });
+        const gate = root.querySelector('[data-basis-confirm-gate]');
+        if (gate) gate.textContent = basisConfirmed ? '执行依据信息已确认' : '请核对案号、文书类型、日期与作出法院';
+        const confirm = root.querySelector('[data-confirm-basis]');
+        if (confirm) {
+          confirm.disabled = !basisUploaded || basisConfirmed;
+          confirm.innerHTML = basisConfirmed ? '<i data-lucide="check" aria-hidden="true"></i>已确认执行依据信息' : '<i data-lucide="check" aria-hidden="true"></i>确认执行依据信息';
+        }
+      }
+
+      function setBasisConfirmed(confirmed) {
+        basisConfirmed = Boolean(confirmed && basisUploaded);
+        updateBasisConfirmationUI();
+        updateFactsGate();
+        updateHeader('facts');
+        refreshIcons();
       }
 
       const identityCopy = {
@@ -1008,7 +1044,7 @@
       }
 
       function updateFactsGate() {
-        const ready = basisUploaded && applicantConfirmed && respondentConfirmed;
+        const ready = basisUploaded && basisConfirmed && applicantConfirmed && respondentConfirmed;
         const factsStatus = root.querySelector('[data-facts-status]');
         const factsGate = root.querySelector('[data-facts-gate]');
         const proceed = root.querySelector('[data-proceed-application]');
@@ -1020,12 +1056,12 @@
           if (factsGate) factsGate.textContent = '请先上传并核对执行依据';
           return;
         }
-        const pending = Number(!applicantConfirmed) + Number(!respondentConfirmed);
+        const pending = Number(!basisConfirmed) + Number(!applicantConfirmed) + Number(!respondentConfirmed);
         if (factsStatus) {
           factsStatus.textContent = ready ? '关键项已确认' : `${pending} 项待确认`;
           factsStatus.className = ready ? 'cfa-status cfa-status-success' : 'cfa-status cfa-status-warning';
         }
-        if (factsGate) factsGate.textContent = ready ? '可继续提取申请内容' : !applicantConfirmed ? '请上传并确认申请执行人身份证信息' : '请确认被执行人姓名';
+        if (factsGate) factsGate.textContent = ready ? '可继续提取申请内容' : !basisConfirmed ? '请核对并确认执行依据信息' : !applicantConfirmed ? '请上传并确认申请执行人身份证信息' : '请确认被执行人姓名';
       }
 
       function startIdentityUpload(key) {
@@ -1074,7 +1110,7 @@
       function loadMatterState(state) {
         currentMatterState = state === 'uploaded' ? 'uploaded' : 'pending';
         invalidateFromBasis();
-        setBasisState(currentMatterState === 'uploaded', false);
+        setBasisState(currentMatterState === 'uploaded', false, currentMatterState === 'uploaded');
         if (currentMatterState === 'uploaded') {
           setIdentityState('applicant-front', true, false);
           setIdentityState('applicant-back', true, false);
@@ -1141,8 +1177,10 @@
       });
 
       const confirmCandidate = root.querySelector('[data-confirm-candidate]');
+      const confirmBasis = root.querySelector('[data-confirm-basis]');
       const confirmApplicant = root.querySelector('[data-confirm-applicant]');
       const proceedApplication = root.querySelector('[data-proceed-application]');
+      if (confirmBasis) confirmBasis.addEventListener('click', () => setBasisConfirmed(true));
       if (confirmApplicant) confirmApplicant.addEventListener('click', () => setApplicantConfirmed(true));
       if (confirmCandidate) {
         confirmCandidate.addEventListener('click', () => setRespondentConfirmed(true));
@@ -1151,14 +1189,15 @@
       const confirmAmount = root.querySelector('[data-confirm-amount]');
       const confirmRequest = root.querySelector('[data-confirm-request]');
       const filingCourt = root.querySelector('#filing-court');
+      const serviceAddress = root.querySelector('#service-address');
       const proceedReview = root.querySelector('[data-proceed-review]');
       const unlockReview = [...root.querySelectorAll('[data-unlock-review]')];
       const applicationGate = root.querySelector('[data-application-gate]');
       function updateApplicationGate() {
-        const ready = amountConfirmed && requestConfirmed && Boolean(filingCourt && filingCourt.value.trim());
+        const ready = amountConfirmed && requestConfirmed && Boolean(filingCourt && filingCourt.value.trim()) && Boolean(serviceAddress && serviceAddress.value.trim());
         if (proceedReview) proceedReview.disabled = !ready;
         unlockReview.forEach((button) => { button.disabled = !ready; });
-        if (applicationGate) applicationGate.textContent = ready ? '关键申请内容已确认' : '请确认金额、请求事项并填写申请法院';
+        if (applicationGate) applicationGate.textContent = ready ? '关键申请内容已确认' : '请确认金额、请求事项并填写申请法院与送达地址';
       }
       if (confirmAmount) confirmAmount.addEventListener('click', () => {
         amountConfirmed = true;
@@ -1177,6 +1216,7 @@
         updateApplicationGate();
       });
       if (filingCourt) filingCourt.addEventListener('input', updateApplicationGate);
+      if (serviceAddress) serviceAddress.addEventListener('input', updateApplicationGate);
 
       const sourceContent = {
         judgment: ['民事调解书', '第 1 / 6 页', '民事调解书', '双方当事人自愿达成如下协议：被申请人于约定日期前支付人民币……'],
@@ -1260,3 +1300,5 @@
     })();
   </script>
 </div>
+</body>
+</html>
