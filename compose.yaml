@@ -1,0 +1,100 @@
+name: case-filing-assistant
+
+x-api-environment: &api-environment
+  CFA_DATABASE_URL: postgresql+psycopg://case_filing:${POSTGRES_PASSWORD:-change-this-local-password}@postgres:5432/case_filing
+  CFA_STORAGE_ROOT: /data/storage
+  CFA_WORKER_HEARTBEAT_FILE: /data/worker-heartbeat
+  CFA_ALLOWED_ORIGINS: '["http://127.0.0.1:3000"]'
+  CFA_ENVIRONMENT: local-compose
+
+services:
+  postgres:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_DB: case_filing
+      POSTGRES_USER: case_filing
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-this-local-password}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U case_filing -d case_filing"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    command: ["python", "-m", "app.entrypoints.migrate"]
+    environment: *api-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - generated-data:/data
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    command: ["python", "-m", "app.entrypoints.api"]
+    environment: *api-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - generated-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    init: true
+
+  worker:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    command: ["python", "-m", "app.entrypoints.worker"]
+    environment: *api-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - generated-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.entrypoints.worker_health"]
+      interval: 10s
+      timeout: 4s
+      retries: 6
+    restart: unless-stopped
+    init: true
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      CFA_INTERNAL_API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+      worker:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    init: true
+
+volumes:
+  postgres-data:
+  generated-data:

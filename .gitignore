@@ -54,6 +54,8 @@ tmp/
 temp/
 *.tmp
 .artifacts/
+.tools/
+.local/
 
 # IDE and OS files
 .idea/
