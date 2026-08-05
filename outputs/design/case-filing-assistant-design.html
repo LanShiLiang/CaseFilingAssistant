@@ -1,0 +1,1262 @@
+<div id="cfa-design-review">
+  <style>
+    #cfa-design-review {
+      --cfa-canvas: light-dark(#eef2f0, #111618);
+      --cfa-surface: light-dark(#ffffff, #182022);
+      --cfa-surface-soft: light-dark(#f5f7f6, #20292b);
+      --cfa-surface-warm: light-dark(#faf8f2, #28261f);
+      --cfa-ink: light-dark(#172326, #edf3f1);
+      --cfa-muted: light-dark(#667477, #aebcba);
+      --cfa-line: light-dark(#d8e0dd, #344143);
+      --cfa-brand: light-dark(#214b4a, #83b7b2);
+      --cfa-brand-ink: light-dark(#ffffff, #102322);
+      --cfa-accent: light-dark(#ad6d2c, #e0a15e);
+      --cfa-accent-soft: light-dark(#f8eee1, #382b20);
+      --cfa-success: light-dark(#33705b, #81c7ac);
+      --cfa-success-soft: light-dark(#e8f3ee, #173229);
+      --cfa-warning: light-dark(#9a671f, #e1ad60);
+      --cfa-warning-soft: light-dark(#fff5dc, #3b2e19);
+      --cfa-danger: light-dark(#a3433d, #ed9189);
+      --cfa-danger-soft: light-dark(#fcecea, #3b201f);
+      --cfa-focus: light-dark(#2f6f6c, #a2d8d3);
+      --cfa-shadow: light-dark(#2032301a, #0000003d);
+      --cfa-motion-fast: 140ms;
+      --cfa-motion-base: 220ms;
+      --cfa-motion-slow: 420ms;
+      --cfa-motion-ease: cubic-bezier(.2,.8,.2,1);
+      color-scheme: light dark;
+      color: var(--cfa-ink);
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    #cfa-design-review * { box-sizing: border-box; }
+    #cfa-design-review button,
+    #cfa-design-review input,
+    #cfa-design-review select,
+    #cfa-design-review textarea { font: inherit; }
+    #cfa-design-review button { cursor: pointer; }
+    #cfa-design-review button:focus-visible,
+    #cfa-design-review input:focus-visible,
+    #cfa-design-review select:focus-visible,
+    #cfa-design-review textarea:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--cfa-focus) 42%, transparent);
+      outline-offset: 2px;
+    }
+    #cfa-design-review button:disabled { cursor: not-allowed; opacity: .48; }
+    #cfa-design-review h1,
+    #cfa-design-review h2,
+    #cfa-design-review h3,
+    #cfa-design-review p { margin-top: 0; }
+    #cfa-design-review h1,
+    #cfa-design-review h2,
+    #cfa-design-review h3,
+    #cfa-design-review strong { font-weight: 500; }
+
+    #cfa-design-review .cfa-view-picker {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    #cfa-design-review .cfa-view-label { color: var(--cfa-muted); }
+    #cfa-design-review .cfa-view-tab {
+      appearance: none;
+      border: 1px solid var(--cfa-line);
+      border-radius: 999px;
+      background: var(--cfa-surface);
+      color: var(--cfa-muted);
+      padding: 7px 12px;
+      transition: color var(--cfa-motion-fast) ease, background var(--cfa-motion-fast) ease, border-color var(--cfa-motion-fast) ease, transform var(--cfa-motion-fast) ease;
+    }
+    #cfa-design-review .cfa-view-tab:hover { transform: translateY(-1px); }
+    #cfa-design-review .cfa-view-tab[aria-pressed="true"] {
+      background: var(--cfa-brand);
+      border-color: var(--cfa-brand);
+      color: var(--cfa-brand-ink);
+    }
+
+    #cfa-design-review .cfa-app {
+      overflow: hidden;
+      border: 1px solid var(--cfa-line);
+      border-radius: 16px;
+      background: var(--cfa-canvas);
+      box-shadow: 0 18px 48px var(--cfa-shadow);
+    }
+    #cfa-design-review .cfa-topbar {
+      display: grid;
+      grid-template-columns: minmax(230px, auto) minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 24px;
+      min-height: 72px;
+      padding: 11px 18px;
+      border-bottom: 1px solid var(--cfa-line);
+      background: var(--cfa-surface);
+    }
+    #cfa-design-review .cfa-brand-lockup { display: flex; align-items: center; gap: 10px; }
+    #cfa-design-review .cfa-brand-mark {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: var(--cfa-brand);
+      color: var(--cfa-brand-ink);
+    }
+    #cfa-design-review .cfa-brand-copy { display: grid; gap: 1px; }
+    #cfa-design-review .cfa-brand-copy small,
+    #cfa-design-review .cfa-caption,
+    #cfa-design-review .cfa-meta,
+    #cfa-design-review .cfa-help { color: var(--cfa-muted); }
+    #cfa-design-review .cfa-header-context { min-width: 0; display: grid; justify-items: center; gap: 3px; }
+    #cfa-design-review .cfa-context-label { display: inline-flex; align-items: center; gap: 5px; color: var(--cfa-muted); }
+    #cfa-design-review .cfa-matter-line { min-width: 0; display: flex; align-items: center; justify-content: center; gap: 9px; max-width: 100%; }
+    #cfa-design-review .cfa-matter-title { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #cfa-design-review .cfa-matter-title.is-changing { animation: cfa-title-settle var(--cfa-motion-base) var(--cfa-motion-ease); }
+    #cfa-design-review .cfa-header-status { flex: 0 0 auto; }
+    #cfa-design-review .cfa-topbar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+    #cfa-design-review .cfa-runtime { display: flex; align-items: center; gap: 8px; color: var(--cfa-muted); }
+    #cfa-design-review .cfa-runtime-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cfa-success); }
+
+    #cfa-design-review .cfa-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 38px;
+      padding: 8px 14px;
+      border: 1px solid var(--cfa-line);
+      border-radius: 8px;
+      background: var(--cfa-surface);
+      color: var(--cfa-ink);
+      transition: color var(--cfa-motion-fast) ease, background var(--cfa-motion-fast) ease, border-color var(--cfa-motion-fast) ease, transform var(--cfa-motion-fast) var(--cfa-motion-ease), box-shadow var(--cfa-motion-fast) ease;
+    }
+    #cfa-design-review .cfa-btn:hover:not(:disabled) { background: var(--cfa-surface-soft); transform: translateY(-1px); box-shadow: 0 4px 12px var(--cfa-shadow); }
+    #cfa-design-review .cfa-btn:active:not(:disabled) { transform: translateY(0) scale(.98); box-shadow: none; }
+    #cfa-design-review .cfa-btn-primary { border-color: var(--cfa-brand); background: var(--cfa-brand); color: var(--cfa-brand-ink); }
+    #cfa-design-review .cfa-btn-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--cfa-brand) 90%, var(--cfa-ink)); }
+    #cfa-design-review .cfa-btn-danger { border-color: var(--cfa-danger); color: var(--cfa-danger); }
+    #cfa-design-review .cfa-btn-link { border-color: transparent; background: transparent; color: var(--cfa-brand); padding-inline: 4px; }
+    #cfa-design-review .cfa-icon-btn { width: 38px; padding: 8px; }
+    #cfa-design-review .cfa-page-actions { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-top: 18px; border-top: 1px solid var(--cfa-line); }
+    #cfa-design-review .cfa-action-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    #cfa-design-review .cfa-home {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(300px, .85fr);
+      gap: 24px;
+      padding: 32px;
+    }
+    #cfa-design-review .cfa-home-main,
+    #cfa-design-review .cfa-home-side,
+    #cfa-design-review .cfa-main,
+    #cfa-design-review .cfa-context { min-width: 0; }
+    #cfa-design-review .cfa-kicker { display: inline-flex; align-items: center; gap: 7px; color: var(--cfa-brand); margin-bottom: 12px; }
+    #cfa-design-review .cfa-lead { color: var(--cfa-muted); max-width: 60ch; }
+    #cfa-design-review .cfa-boundary-note {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin: 18px 0;
+      padding: 12px 14px;
+      border-left: 3px solid var(--cfa-accent);
+      background: var(--cfa-accent-soft);
+      color: var(--cfa-ink);
+    }
+    #cfa-design-review .cfa-panel {
+      border: 1px solid var(--cfa-line);
+      border-radius: 12px;
+      background: var(--cfa-surface);
+      padding: 18px;
+    }
+    #cfa-design-review .cfa-panel + .cfa-panel { margin-top: 14px; }
+    #cfa-design-review .cfa-check-list { display: grid; gap: 12px; margin: 16px 0 20px; }
+    #cfa-design-review .cfa-condition-list { display: grid; gap: 10px; margin: 16px 0; padding-left: 28px; }
+    #cfa-design-review .cfa-condition-list li { padding-left: 4px; }
+    #cfa-design-review .cfa-single-confirm { margin: 18px 0; padding: 14px; border-radius: 9px; background: var(--cfa-success-soft); }
+    #cfa-design-review .cfa-check-row { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 10px; align-items: start; }
+    #cfa-design-review .cfa-check-row input { width: 18px; height: 18px; accent-color: var(--cfa-brand); }
+    #cfa-design-review .cfa-home-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    #cfa-design-review .cfa-recent { display: grid; gap: 10px; }
+    #cfa-design-review .cfa-recent-item {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) auto;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--cfa-line);
+      border-radius: 10px;
+      background: var(--cfa-surface-soft);
+      transition: transform var(--cfa-motion-base) var(--cfa-motion-ease), border-color var(--cfa-motion-fast) ease, box-shadow var(--cfa-motion-base) ease;
+    }
+    #cfa-design-review .cfa-recent-item:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--cfa-brand) 42%, var(--cfa-line)); box-shadow: 0 8px 20px var(--cfa-shadow); }
+    #cfa-design-review .cfa-recent-item p { margin-bottom: 4px; }
+
+    #cfa-design-review .cfa-workspace {
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr) 300px;
+      align-items: stretch;
+      min-height: 660px;
+    }
+    #cfa-design-review .cfa-sidebar {
+      padding: 22px 14px;
+      border-right: 1px solid var(--cfa-line);
+      background: var(--cfa-surface);
+    }
+    #cfa-design-review .cfa-progress { margin: 0 8px 14px; color: var(--cfa-muted); }
+    #cfa-design-review .cfa-steps { display: grid; gap: 6px; }
+    #cfa-design-review .cfa-step {
+      appearance: none;
+      width: 100%;
+      display: grid;
+      grid-template-columns: 28px minmax(0,1fr);
+      align-items: center;
+      gap: 10px;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      background: transparent;
+      color: var(--cfa-muted);
+      padding: 10px;
+      text-align: left;
+      transition: color var(--cfa-motion-fast) ease, background var(--cfa-motion-fast) ease, border-color var(--cfa-motion-fast) ease, transform var(--cfa-motion-fast) var(--cfa-motion-ease);
+    }
+    #cfa-design-review .cfa-step:hover { background: var(--cfa-surface-soft); color: var(--cfa-ink); transform: translateX(2px); }
+    #cfa-design-review .cfa-step[aria-current="step"] { border-color: var(--cfa-line); background: var(--cfa-surface-soft); color: var(--cfa-ink); }
+    #cfa-design-review .cfa-step-index { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--cfa-line); transition: color var(--cfa-motion-base) ease, background var(--cfa-motion-base) ease, border-color var(--cfa-motion-base) ease, transform var(--cfa-motion-base) var(--cfa-motion-ease); }
+    #cfa-design-review .cfa-step[aria-current="step"] .cfa-step-index { border-color: var(--cfa-brand); background: var(--cfa-brand); color: var(--cfa-brand-ink); }
+    #cfa-design-review .cfa-step[aria-current="step"] .cfa-step-index { transform: scale(1.06); }
+    #cfa-design-review .cfa-step[data-state="done"] .cfa-step-index { border-color: var(--cfa-success); color: var(--cfa-success); }
+    #cfa-design-review .cfa-privacy {
+      margin-top: 22px;
+      padding: 12px;
+      border-top: 1px solid var(--cfa-line);
+      color: var(--cfa-muted);
+    }
+    #cfa-design-review .cfa-privacy p { margin: 6px 0 0; }
+
+    #cfa-design-review .cfa-main { padding: 24px; background: var(--cfa-canvas); }
+    #cfa-design-review .cfa-page-head { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 20px; }
+    #cfa-design-review .cfa-page-head p { margin-bottom: 0; color: var(--cfa-muted); }
+    #cfa-design-review .cfa-status,
+    #cfa-design-review .cfa-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      width: fit-content;
+      border-radius: 999px;
+      padding: 4px 9px;
+      white-space: nowrap;
+    }
+    #cfa-design-review .cfa-status { background: var(--cfa-surface-soft); color: var(--cfa-muted); }
+    #cfa-design-review .cfa-status-success { background: var(--cfa-success-soft); color: var(--cfa-success); }
+    #cfa-design-review .cfa-status-warning { background: var(--cfa-warning-soft); color: var(--cfa-warning); }
+    #cfa-design-review .cfa-status-danger { background: var(--cfa-danger-soft); color: var(--cfa-danger); }
+    #cfa-design-review .cfa-status-info { background: var(--cfa-accent-soft); color: var(--cfa-accent); }
+
+    #cfa-design-review .cfa-section { margin-top: 22px; }
+    #cfa-design-review .cfa-section-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 10px; }
+    #cfa-design-review .cfa-file-icon { display: grid; place-items: center; width: 34px; height: 40px; border-radius: 7px; background: var(--cfa-surface-soft); color: var(--cfa-brand); }
+
+    #cfa-design-review .cfa-context {
+      padding: 20px;
+      border-left: 1px solid var(--cfa-line);
+      background: var(--cfa-surface);
+    }
+    #cfa-design-review .cfa-context-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+    #cfa-design-review .cfa-doc-frame { border: 1px solid var(--cfa-line); border-radius: 8px; background: var(--cfa-surface-soft); padding: 12px; }
+    #cfa-design-review .cfa-paper {
+      min-height: 330px;
+      padding: 28px 22px;
+      border: 1px solid var(--cfa-line);
+      background: light-dark(#ffffff, #222728);
+      color: var(--cfa-ink);
+      box-shadow: 0 6px 18px var(--cfa-shadow);
+    }
+    #cfa-design-review .cfa-paper-title { text-align: center; letter-spacing: .14em; }
+    #cfa-design-review .cfa-paper-line { height: 8px; margin: 10px 0; border-radius: 2px; background: var(--cfa-line); }
+    #cfa-design-review .cfa-paper-line-short { width: 64%; }
+    #cfa-design-review .cfa-paper-highlight { margin: 14px -6px; padding: 8px 6px; background: var(--cfa-warning-soft); border-left: 3px solid var(--cfa-warning); }
+    #cfa-design-review .cfa-context-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 10px 0; }
+    #cfa-design-review .cfa-source-dialog { width: min(560px, calc(100% - 24px)); border: 1px solid var(--cfa-line); border-radius: 14px; background: var(--cfa-surface); color: var(--cfa-ink); padding: 20px; box-shadow: 0 18px 48px var(--cfa-shadow); }
+    #cfa-design-review .cfa-source-dialog[open] { animation: cfa-dialog-in var(--cfa-motion-base) var(--cfa-motion-ease); }
+    #cfa-design-review .cfa-source-dialog::backdrop { background: light-dark(#17232666, #00000099); }
+    #cfa-design-review .cfa-source-dialog-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+    #cfa-design-review .cfa-source-dialog blockquote { margin: 14px 0 0; padding: 12px; border-left: 3px solid var(--cfa-accent); background: var(--cfa-warning-soft); }
+
+    #cfa-design-review .cfa-form-stack { display: grid; gap: 16px; }
+    #cfa-design-review .cfa-upload-pair { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-bottom: 16px; }
+    #cfa-design-review .cfa-upload-slot { position: relative; overflow: hidden; display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 10px; align-items: center; min-height: 84px; padding: 12px; border: 1px dashed var(--cfa-brand); border-radius: 10px; background: var(--cfa-surface-soft); transition: border-color var(--cfa-motion-base) ease, background var(--cfa-motion-base) ease, transform var(--cfa-motion-base) var(--cfa-motion-ease); }
+    #cfa-design-review .cfa-upload-slot strong { display: block; }
+    #cfa-design-review .cfa-upload-slot p { margin: 3px 0 0; color: var(--cfa-muted); }
+    #cfa-design-review .cfa-upload-slot.is-complete { border-style: solid; border-color: var(--cfa-line); }
+    #cfa-design-review .cfa-upload-slot-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; background: var(--cfa-surface); color: var(--cfa-brand); }
+    #cfa-design-review .cfa-upload-slot:hover { transform: translateY(-1px); }
+    #cfa-design-review .cfa-upload-slot.is-uploading { border-style: solid; border-color: var(--cfa-accent); background: var(--cfa-accent-soft); }
+    #cfa-design-review .cfa-upload-slot.is-uploading::after { content: ""; position: absolute; inset: 0; transform: translateX(-110%); background: linear-gradient(105deg, transparent 25%, color-mix(in srgb, var(--cfa-surface) 68%, transparent) 50%, transparent 75%); animation: cfa-shimmer 900ms ease-in-out infinite; pointer-events: none; }
+    #cfa-design-review .cfa-upload-slot.is-complete .cfa-upload-slot-icon { animation: cfa-success-pop var(--cfa-motion-slow) var(--cfa-motion-ease); }
+    #cfa-design-review .cfa-upload-progress { grid-column: 1 / -1; height: 3px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--cfa-accent) 18%, transparent); }
+    #cfa-design-review .cfa-upload-progress span { display: block; width: 44%; height: 100%; border-radius: inherit; background: var(--cfa-accent); animation: cfa-progress-run 820ms var(--cfa-motion-ease) infinite; }
+    #cfa-design-review .cfa-extract-banner { display: flex; justify-content: space-between; gap: 14px; align-items: center; margin-bottom: 16px; padding: 14px; border-left: 3px solid var(--cfa-brand); background: var(--cfa-success-soft); }
+    #cfa-design-review .cfa-extract-banner p { margin: 3px 0 0; color: var(--cfa-muted); }
+    #cfa-design-review .cfa-form-section { border: 1px solid var(--cfa-line); border-radius: 12px; background: var(--cfa-surface); padding: 18px; }
+    #cfa-design-review .cfa-form-section.is-revealed { animation: cfa-reveal var(--cfa-motion-slow) var(--cfa-motion-ease) both; }
+    #cfa-design-review .cfa-form-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+    #cfa-design-review .cfa-form-head p { margin-bottom: 0; color: var(--cfa-muted); }
+    #cfa-design-review .cfa-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
+    #cfa-design-review .cfa-form-grid-three { grid-template-columns: repeat(3, minmax(0,1fr)); }
+    #cfa-design-review .cfa-field { display: grid; gap: 6px; min-width: 0; }
+    #cfa-design-review .cfa-field-wide { grid-column: 1 / -1; }
+    #cfa-design-review .cfa-field label { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--cfa-muted); }
+    #cfa-design-review .cfa-field input,
+    #cfa-design-review .cfa-field select,
+    #cfa-design-review .cfa-field textarea {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--cfa-line);
+      border-radius: 8px;
+      background: var(--cfa-surface);
+      color: var(--cfa-ink);
+      padding: 9px 10px;
+    }
+    #cfa-design-review .cfa-field textarea { min-height: 88px; resize: vertical; }
+    #cfa-design-review .cfa-field input[readonly] { background: var(--cfa-surface-soft); }
+    #cfa-design-review .cfa-field-source { display: inline-flex; align-items: center; gap: 4px; color: var(--cfa-brand); }
+    #cfa-design-review .cfa-field-source button { border: 0; background: transparent; color: inherit; padding: 0; }
+    #cfa-design-review .cfa-field-foot { display: flex; justify-content: space-between; gap: 8px; color: var(--cfa-muted); }
+
+    #cfa-design-review .cfa-amount-box { border: 1px solid var(--cfa-line); border-radius: 12px; background: var(--cfa-surface); padding: 18px; }
+    #cfa-design-review .cfa-equation { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr); gap: 10px; align-items: end; }
+    #cfa-design-review .cfa-operator { padding-bottom: 12px; color: var(--cfa-muted); }
+    #cfa-design-review .cfa-result input { border-color: var(--cfa-brand); background: var(--cfa-success-soft); }
+    #cfa-design-review .cfa-confirm-band { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-top: 14px; padding: 12px; background: var(--cfa-surface-soft); border-radius: 8px; }
+
+    #cfa-design-review .cfa-issue-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin-bottom: 16px; }
+    #cfa-design-review .cfa-summary-cell { padding: 14px; border: 1px solid var(--cfa-line); border-radius: 10px; background: var(--cfa-surface); }
+    #cfa-design-review .cfa-summary-cell strong { display: block; margin-top: 4px; }
+    #cfa-design-review .cfa-issue-list { display: grid; gap: 8px; }
+    #cfa-design-review .cfa-issue {
+      display: grid;
+      grid-template-columns: auto minmax(0,1fr) auto;
+      gap: 12px;
+      align-items: start;
+      padding: 13px;
+      border: 1px solid var(--cfa-line);
+      border-radius: 10px;
+      background: var(--cfa-surface);
+    }
+    #cfa-design-review .cfa-issue p { margin: 3px 0 0; color: var(--cfa-muted); }
+    #cfa-design-review .cfa-issue-dot { width: 10px; height: 10px; margin-top: 5px; border-radius: 50%; background: var(--cfa-warning); }
+    #cfa-design-review .cfa-issue-dot-info { background: var(--cfa-brand); }
+    #cfa-design-review .cfa-preview-sheet {
+      min-height: 430px;
+      padding: 34px 28px;
+      border: 1px solid var(--cfa-line);
+      background: light-dark(#ffffff, #222728);
+      box-shadow: 0 6px 18px var(--cfa-shadow);
+    }
+    #cfa-design-review .cfa-preview-sheet h2 { text-align: center; letter-spacing: .18em; }
+    #cfa-design-review .cfa-preview-sheet p { margin-bottom: 14px; }
+    #cfa-design-review .cfa-signature { width: 48%; margin: 44px 0 0 auto; }
+
+    #cfa-design-review .cfa-download-list { display: grid; gap: 10px; }
+    #cfa-design-review .cfa-download {
+      display: grid;
+      grid-template-columns: auto minmax(0,1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px;
+      border: 1px solid var(--cfa-line);
+      border-radius: 10px;
+      background: var(--cfa-surface);
+    }
+    #cfa-design-review .cfa-download p { margin: 3px 0 0; color: var(--cfa-muted); }
+    #cfa-design-review .cfa-export-confirm { margin-top: 18px; border: 1px solid var(--cfa-line); border-radius: 12px; background: var(--cfa-surface); padding: 18px; }
+    #cfa-design-review .cfa-version-strip { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; padding: 12px 14px; border-radius: 9px; background: var(--cfa-success-soft); color: var(--cfa-success); }
+    #cfa-design-review .cfa-version-strip.is-pending { background: var(--cfa-warning-soft); color: var(--cfa-warning); }
+
+    #cfa-design-review .cfa-blocked { display: grid; place-items: center; min-height: 660px; padding: 36px; background: var(--cfa-canvas); }
+    #cfa-design-review .cfa-blocked-card { max-width: 660px; border: 1px solid var(--cfa-danger); border-radius: 14px; background: var(--cfa-surface); padding: 28px; }
+    #cfa-design-review .cfa-blocked-icon { display: grid; place-items: center; width: 44px; height: 44px; margin-bottom: 16px; border-radius: 50%; background: var(--cfa-danger-soft); color: var(--cfa-danger); }
+    #cfa-design-review .cfa-detected { margin: 18px 0; padding: 14px; border-radius: 9px; background: var(--cfa-danger-soft); }
+    #cfa-design-review .cfa-detected ul { margin-bottom: 0; }
+
+    #cfa-design-review .cfa-spec { padding: 28px; background: var(--cfa-canvas); }
+    #cfa-design-review .cfa-spec-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+    #cfa-design-review .cfa-spec-block { border: 1px solid var(--cfa-line); border-radius: 12px; background: var(--cfa-surface); padding: 18px; }
+    #cfa-design-review .cfa-swatches { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 8px; }
+    #cfa-design-review .cfa-swatch { overflow: hidden; border: 1px solid var(--cfa-line); border-radius: 8px; background: var(--cfa-surface); }
+    #cfa-design-review .cfa-swatch-color { height: 44px; }
+    #cfa-design-review .cfa-swatch label { display: block; padding: 7px; color: var(--cfa-muted); }
+    #cfa-design-review .cfa-swatch-brand { background: var(--cfa-brand); }
+    #cfa-design-review .cfa-swatch-accent { background: var(--cfa-accent); }
+    #cfa-design-review .cfa-swatch-success { background: var(--cfa-success); }
+    #cfa-design-review .cfa-swatch-warning { background: var(--cfa-warning); }
+    #cfa-design-review .cfa-swatch-danger { background: var(--cfa-danger); }
+    #cfa-design-review .cfa-pattern-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    #cfa-design-review .cfa-pattern-stack { display: grid; gap: 10px; }
+    #cfa-design-review [data-view].is-entering { animation: cfa-view-in var(--cfa-motion-base) var(--cfa-motion-ease) both; }
+    #cfa-design-review .cfa-flash { animation: cfa-highlight var(--cfa-motion-slow) var(--cfa-motion-ease); }
+    #cfa-design-review .cfa-motion-list { display: grid; gap: 10px; }
+    #cfa-design-review .cfa-motion-row { display: grid; grid-template-columns: minmax(120px,.65fr) minmax(0,1.35fr); gap: 12px; align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--cfa-line); }
+    #cfa-design-review .cfa-motion-row:last-child { border-bottom: 0; padding-bottom: 0; }
+    #cfa-design-review .cfa-component-map { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+    #cfa-design-review .cfa-component-item { padding: 10px; border: 1px solid var(--cfa-line); border-radius: 8px; background: var(--cfa-surface-soft); }
+    #cfa-design-review .cfa-component-item code { display: block; margin-bottom: 3px; color: var(--cfa-brand); }
+
+    @keyframes cfa-view-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes cfa-title-settle { 0% { opacity: .25; transform: translateY(5px); } 100% { opacity: 1; transform: translateY(0); } }
+    @keyframes cfa-reveal { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+    @keyframes cfa-success-pop { 0% { transform: scale(.72); } 58% { transform: scale(1.1); } 100% { transform: scale(1); } }
+    @keyframes cfa-dialog-in { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes cfa-highlight { 0%,100% { box-shadow: none; } 45% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--cfa-accent) 24%, transparent); } }
+    @keyframes cfa-shimmer { to { transform: translateX(110%); } }
+    @keyframes cfa-progress-run { from { transform: translateX(-110%); } to { transform: translateX(250%); } }
+
+    #cfa-design-review [hidden] { display: none !important; }
+
+    @media (max-width: 980px) {
+      #cfa-design-review .cfa-workspace { grid-template-columns: 180px minmax(0,1fr); }
+      #cfa-design-review .cfa-context { display: none; }
+      #cfa-design-review .cfa-home { grid-template-columns: 1fr; }
+      #cfa-design-review .cfa-spec-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 700px) {
+      #cfa-design-review .cfa-topbar { grid-template-columns: 1fr auto; }
+      #cfa-design-review .cfa-header-context { grid-column: 1 / -1; grid-row: 2; justify-items: start; border-top: 1px solid var(--cfa-line); padding-top: 9px; }
+      #cfa-design-review .cfa-matter-line { justify-content: flex-start; }
+      #cfa-design-review .cfa-topbar-actions { grid-column: 2; grid-row: 1; }
+      #cfa-design-review .cfa-workspace { grid-template-columns: 1fr; }
+      #cfa-design-review .cfa-sidebar { border-right: 0; border-bottom: 1px solid var(--cfa-line); }
+      #cfa-design-review .cfa-steps { grid-template-columns: repeat(4,minmax(0,1fr)); }
+      #cfa-design-review .cfa-step { grid-template-columns: 1fr; justify-items: center; padding: 7px 3px; text-align: center; }
+      #cfa-design-review .cfa-step-index { width: 26px; height: 26px; }
+      #cfa-design-review .cfa-privacy,
+      #cfa-design-review .cfa-progress { display: none; }
+      #cfa-design-review .cfa-main,
+      #cfa-design-review .cfa-home,
+      #cfa-design-review .cfa-spec { padding: 18px; }
+      #cfa-design-review .cfa-form-grid,
+      #cfa-design-review .cfa-form-grid-three,
+      #cfa-design-review .cfa-issue-summary,
+      #cfa-design-review .cfa-upload-pair { grid-template-columns: 1fr; }
+      #cfa-design-review .cfa-equation { grid-template-columns: 1fr; }
+      #cfa-design-review .cfa-operator { padding: 0; text-align: center; }
+      #cfa-design-review .cfa-upload-slot { grid-template-columns: auto minmax(0,1fr); }
+      #cfa-design-review .cfa-upload-slot > .cfa-action-group,
+      #cfa-design-review .cfa-upload-slot > button { grid-column: 2; justify-self: start; }
+      #cfa-design-review .cfa-page-head { display: grid; }
+      #cfa-design-review .cfa-swatches { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      #cfa-design-review .cfa-component-map { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 430px) {
+      #cfa-design-review .cfa-brand-copy small,
+      #cfa-design-review .cfa-runtime span { display: none; }
+      #cfa-design-review .cfa-view-label { width: 100%; }
+      #cfa-design-review .cfa-steps { gap: 2px; }
+      #cfa-design-review .cfa-step span:last-child { display: none; }
+      #cfa-design-review .cfa-download,
+      #cfa-design-review .cfa-issue { grid-template-columns: auto minmax(0,1fr); }
+      #cfa-design-review .cfa-download > :last-child,
+      #cfa-design-review .cfa-issue > :last-child { grid-column: 2; justify-self: start; }
+      #cfa-design-review .cfa-confirm-band { display: grid; }
+      #cfa-design-review .cfa-header-status { display: none; }
+      #cfa-design-review .cfa-motion-row { grid-template-columns: 1fr; gap: 4px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #cfa-design-review *,
+      #cfa-design-review *::before,
+      #cfa-design-review *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+
+  <nav class="cfa-view-picker" aria-label="设计稿页面">
+    <span class="cfa-view-label">设计审核视图（非产品界面）</span>
+    <button class="cfa-view-tab" type="button" data-open="home" aria-pressed="true">首页</button>
+    <button class="cfa-view-tab" type="button" data-open="facts" data-matter-state="pending" aria-pressed="false">1 当事人与依据</button>
+    <button class="cfa-view-tab" type="button" data-open="application" data-matter-state="uploaded" aria-pressed="false">2 申请内容</button>
+    <button class="cfa-view-tab" type="button" data-open="review" data-matter-state="uploaded" aria-pressed="false">3 检查与预览</button>
+    <button class="cfa-view-tab" type="button" data-open="export" data-matter-state="uploaded" aria-pressed="false">4 导出</button>
+    <button class="cfa-view-tab" type="button" data-open="blocked" aria-pressed="false">不适用阻断</button>
+    <button class="cfa-view-tab" type="button" data-open="spec" aria-pressed="false">组件规范</button>
+  </nav>
+
+  <section class="cfa-app" aria-label="Case Filing Assistant 交互设计稿">
+    <header class="cfa-topbar" data-component="AppHeader">
+      <div class="cfa-brand-lockup">
+        <span class="cfa-brand-mark"><i data-lucide="scale" aria-hidden="true"></i></span>
+        <span class="cfa-brand-copy"><strong>Case Filing Assistant</strong><small>强制执行材料助手</small></span>
+      </div>
+      <div class="cfa-header-context">
+        <span class="cfa-context-label"><i data-lucide="layout-dashboard" aria-hidden="true"></i><span data-context-label>工作台</span></span>
+        <div class="cfa-matter-line"><strong class="cfa-matter-title" data-matter-title>本地事项工作台</strong><span class="cfa-status cfa-header-status" data-matter-meta hidden></span></div>
+      </div>
+      <div class="cfa-topbar-actions"><div class="cfa-runtime"><span class="cfa-runtime-dot" aria-hidden="true"></span><span>本机运行</span></div><button class="cfa-btn cfa-icon-btn" type="button" aria-label="本地设置"><i data-lucide="settings-2" aria-hidden="true"></i></button></div>
+    </header>
+
+    <div data-view="home">
+      <main class="cfa-home">
+        <section class="cfa-home-main">
+          <span class="cfa-kicker"><i data-lucide="file-check-2" aria-hidden="true"></i> 本人办理 · 单一被执行人</span>
+          <h1>从现有材料整理强制执行申请草稿</h1>
+          <p class="cfa-lead">上传民事调解书或民事判决书，逐项核对当事人、执行依据与金额，生成可人工复核的申请书和材料清单。</p>
+          <div class="cfa-boundary-note"><i data-lucide="shield-check" aria-hidden="true"></i><span>材料保存在本机。系统不会登录法院、代为提交、缴费、送达或联系法院。</span></div>
+
+          <section class="cfa-panel" aria-labelledby="eligibility-title">
+            <h2 id="eligibility-title">开始前确认适用条件</h2>
+            <p class="cfa-help">请逐项阅读；以下条件全部满足，才适合使用当前版本。</p>
+            <ol class="cfa-condition-list">
+              <li>我是生效法律文书中享有权利、准备本人办理申请执行的当事人，不委托律师或其他代理人。</li>
+              <li>本次申请只有一名自然人申请执行人和一名自然人被执行人。</li>
+              <li>执行依据是民事调解书或民事判决书，且只有一项明确的金钱给付义务。</li>
+              <li>我会人工核对姓名、证件号、金额、履行情况和请求事项。</li>
+            </ol>
+            <div class="cfa-single-confirm" data-eligibility>
+              <label class="cfa-check-row"><input type="checkbox"><span><strong>我已阅读并确认以上 4 项全部符合。</strong></span></label>
+            </div>
+            <div class="cfa-home-actions">
+              <button class="cfa-btn cfa-btn-primary" type="button" data-create disabled><i data-lucide="plus" aria-hidden="true"></i>新建强制执行事项</button>
+              <button class="cfa-btn cfa-btn-link" type="button" data-open="blocked">什么情况不适用？</button>
+            </div>
+          </section>
+        </section>
+
+        <aside class="cfa-home-side">
+          <section class="cfa-panel">
+            <div class="cfa-section-head"><h2>最近本地事项</h2><span class="cfa-caption">2 项</span></div>
+            <div class="cfa-recent">
+              <article class="cfa-recent-item">
+                <div><p><strong>（2026）示例民初 001 号</strong></p><span class="cfa-meta">进行到：检查与预览 · 今天 14:32</span></div>
+                <button class="cfa-btn cfa-icon-btn" type="button" data-open="review" data-matter-state="uploaded" aria-label="打开已上传事项"><i data-lucide="arrow-right" aria-hidden="true"></i></button>
+              </article>
+              <article class="cfa-recent-item">
+                <div><p><strong>待上传执行依据</strong></p><span class="cfa-meta">新事项 · 昨天 18:05</span></div>
+                <button class="cfa-btn cfa-icon-btn" type="button" data-open="facts" data-matter-state="pending" aria-label="打开待上传事项"><i data-lucide="arrow-right" aria-hidden="true"></i></button>
+              </article>
+            </div>
+          </section>
+          <section class="cfa-panel">
+            <h3>当前版本支持</h3>
+            <p class="cfa-help">自然人对自然人、一项主要金钱给付义务、民事调解书或民事判决书。</p>
+            <span class="cfa-status cfa-status-info"><i data-lucide="info" aria-hidden="true"></i>复杂案件请人工处理</span>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <div data-view="facts" hidden>
+      <div class="cfa-workspace">
+        <aside class="cfa-sidebar">
+          <p class="cfa-progress">步骤 1 / 4</p>
+          <nav class="cfa-steps" aria-label="事项步骤">
+            <button class="cfa-step" type="button" data-go="facts" aria-current="step"><span class="cfa-step-index">1</span><span>当事人与依据</span></button>
+            <button class="cfa-step" type="button" data-go="application" data-unlock-application disabled><span class="cfa-step-index">2</span><span>申请内容</span></button>
+            <button class="cfa-step" type="button" data-go="review" disabled><span class="cfa-step-index">3</span><span>检查与预览</span></button>
+            <button class="cfa-step" type="button" data-go="export" disabled><span class="cfa-step-index">4</span><span>导出</span></button>
+          </nav>
+          <div class="cfa-privacy"><i data-lucide="eye-off" aria-hidden="true"></i><p>证件号等敏感字段默认脱敏展示。</p></div>
+        </aside>
+        <main class="cfa-main">
+          <header class="cfa-page-head"><div><h1>添加当事人与执行依据</h1><p>先上传执行依据，再核对系统提取的案号、当事人和申请内容候选。</p></div><span class="cfa-status" data-facts-status>等待执行依据</span></header>
+          <div class="cfa-form-stack">
+            <section class="cfa-form-section" data-component="UploadField" data-basis-section>
+              <div class="cfa-form-head"><div><h2>1. 执行依据</h2><p>上传民事调解书或民事判决书后，案号才会成为当前事项标题。</p></div><span class="cfa-status" data-basis-status>待上传</span></div>
+              <article class="cfa-upload-slot" aria-label="待上传执行依据" data-basis-upload><span class="cfa-upload-slot-icon" data-basis-icon><i data-lucide="file-up" aria-hidden="true"></i></span><div><strong data-basis-name>上传执行依据</strong><p data-basis-description>PDF、DOCX、JPG、PNG · 文件仅在本机处理</p></div><div class="cfa-action-group" data-basis-actions><button class="cfa-btn cfa-btn-primary" type="button" data-upload-basis>选择文件</button></div><div class="cfa-upload-progress" data-upload-progress hidden><span></span></div></article>
+              <p class="cfa-help">支持 PDF、DOCX、JPG、PNG；扫描件将在本机进行 OCR。无法识别时可以查看原文并手工填写。</p>
+              <div class="cfa-form-grid cfa-form-grid-three" data-after-basis hidden>
+                <div class="cfa-field"><label for="doc-type">文书类型</label><select id="doc-type"><option>民事调解书</option><option>民事判决书</option></select><span class="cfa-field-foot"><span>材料提取</span><span class="cfa-status cfa-status-success">已确认</span></span></div>
+                <div class="cfa-field"><label for="case-number">案号 <span class="cfa-field-source"><button type="button" data-source="case">来源</button></span></label><input id="case-number" value="（2026）示例民初 001 号"><span class="cfa-field-foot"><span>第 1 页</span><span class="cfa-status cfa-status-success">已确认</span></span></div>
+                <div class="cfa-field"><label for="doc-date">文书日期</label><input id="doc-date" value="2026-07-18"><span class="cfa-field-foot"><span>材料提取</span><span class="cfa-status cfa-status-success">已确认</span></span></div>
+                <div class="cfa-field cfa-field-wide"><label for="court-name">作出法院 <span class="cfa-field-source"><button type="button" data-source="case">来源</button></span></label><input id="court-name" value="示例市示例区人民法院"><span class="cfa-field-foot"><span>第 1 页</span><span class="cfa-status cfa-status-success">已确认</span></span></div>
+              </div>
+            </section>
+            <section class="cfa-form-section" data-component="PartyIdentitySection" data-applicant-section data-after-basis hidden>
+              <div class="cfa-form-head"><div><h2>2. 申请执行人</h2><p>请分别上传身份证正反面；识别结果仅作为候选，需由你确认。</p></div><span class="cfa-status cfa-status-warning" data-applicant-status>待上传身份证</span></div>
+              <div class="cfa-upload-pair" aria-label="申请执行人身份证照片">
+                <article class="cfa-upload-slot" data-identity-upload-slot="applicant-front"><span class="cfa-upload-slot-icon"><i data-lucide="image-plus" aria-hidden="true"></i></span><div><strong>身份证人像面（正面）</strong><p data-identity-description>请上传 · JPG、PNG</p></div><button class="cfa-btn cfa-btn-primary" type="button" data-upload-identity="applicant-front" aria-label="上传申请执行人身份证人像面">上传</button></article>
+                <article class="cfa-upload-slot" data-identity-upload-slot="applicant-back"><span class="cfa-upload-slot-icon"><i data-lucide="image-plus" aria-hidden="true"></i></span><div><strong>身份证国徽面（反面）</strong><p data-identity-description>请上传 · JPG、PNG</p></div><button class="cfa-btn" type="button" data-upload-identity="applicant-back" aria-label="上传申请执行人身份证国徽面">上传</button></article>
+              </div>
+              <div class="cfa-form-grid">
+                <div class="cfa-field"><label for="applicant-name">姓名 <span class="cfa-field-source"><i data-lucide="scan-text" aria-hidden="true"></i><button type="button" data-source="applicant" data-applicant-source disabled>来源</button></span></label><input id="applicant-name" data-applicant-field placeholder="上传身份证正反面后识别" disabled><span class="cfa-field-foot"><span data-applicant-field-source>等待身份证</span><span class="cfa-status cfa-status-warning" data-applicant-field-status>待识别</span></span></div>
+                <div class="cfa-field"><label for="applicant-id">身份证号 <span class="cfa-field-source"><i data-lucide="scan-text" aria-hidden="true"></i><button type="button" data-source="applicant" data-applicant-source disabled>来源</button></span></label><input id="applicant-id" data-applicant-field placeholder="上传身份证正反面后识别" disabled><span class="cfa-field-foot"><button class="cfa-btn cfa-btn-link" type="button" aria-label="查看申请执行人身份证号明文" disabled><i data-lucide="eye" aria-hidden="true"></i>查看明文</button><span class="cfa-status cfa-status-warning" data-applicant-field-status>待识别</span></span></div>
+                <div class="cfa-field cfa-field-wide"><label for="applicant-address">送达地址</label><input id="applicant-address" data-applicant-field placeholder="识别后可修改" disabled><span class="cfa-field-foot"><span data-applicant-field-source>等待身份证</span><span class="cfa-status cfa-status-warning" data-applicant-field-status>待识别</span></span></div>
+              </div>
+              <div class="cfa-confirm-band"><span data-applicant-gate>请先上传身份证正反面</span><button class="cfa-btn cfa-btn-primary" type="button" data-confirm-applicant disabled><i data-lucide="check" aria-hidden="true"></i>确认申请执行人信息</button></div>
+            </section>
+            <section class="cfa-form-section" data-component="PartyIdentitySection" data-after-basis hidden>
+              <div class="cfa-form-head"><div><h2>3. 被执行人</h2><p>请确认材料中的对方是本次唯一被执行人；身份证照片如有请上传。</p></div><span class="cfa-status">1 人</span></div>
+              <div class="cfa-upload-pair" aria-label="被执行人身份证照片">
+                <article class="cfa-upload-slot" data-identity-upload-slot="respondent-front"><span class="cfa-upload-slot-icon"><i data-lucide="image-plus" aria-hidden="true"></i></span><div><strong>身份证人像面（正面）</strong><p data-identity-description>如有请上传 · JPG、PNG</p></div><button class="cfa-btn cfa-btn-primary" type="button" data-upload-identity="respondent-front" aria-label="上传被执行人身份证人像面">上传</button></article>
+                <article class="cfa-upload-slot" data-identity-upload-slot="respondent-back"><span class="cfa-upload-slot-icon"><i data-lucide="image-plus" aria-hidden="true"></i></span><div><strong>身份证国徽面（反面）</strong><p data-identity-description>如有请上传 · JPG、PNG</p></div><button class="cfa-btn" type="button" data-upload-identity="respondent-back" aria-label="上传被执行人身份证国徽面">上传</button></article>
+              </div>
+              <p class="cfa-help">没有被执行人身份证照片？可先从执行依据提取姓名，再手工补充已知信息。</p>
+              <div class="cfa-form-grid">
+                <div class="cfa-field"><label for="respondent-name">姓名 <span class="cfa-field-source"><i data-lucide="scan-text" aria-hidden="true"></i><button type="button" data-source="respondent">来源</button></span></label><input id="respondent-name" value="周示例"><span class="cfa-field-foot"><span>来自调解书第 1 页</span><button class="cfa-btn cfa-btn-primary" type="button" data-confirm-candidate>确认姓名</button></span></div>
+                <div class="cfa-field"><label for="respondent-id">身份证号</label><input id="respondent-id" placeholder="材料未明确，请手工填写"><span class="cfa-field-foot"><span>用户填写</span><span class="cfa-status cfa-status-warning">待填写</span></span></div>
+              </div>
+            </section>
+          </div>
+          <div class="cfa-page-actions" data-after-basis hidden><button class="cfa-btn" type="button" data-open="home"><i data-lucide="arrow-left" aria-hidden="true"></i>返回首页</button><div><span class="cfa-help" data-facts-gate>请先确认被执行人姓名</span> <button class="cfa-btn cfa-btn-primary" type="button" data-go="application" data-proceed-application disabled>保存并提取申请内容 <i data-lucide="arrow-right" aria-hidden="true"></i></button></div></div>
+        </main>
+        <aside class="cfa-context" aria-label="字段来源">
+          <div class="cfa-context-head"><div><h2 data-source-title>等待材料</h2><span class="cfa-caption" data-source-meta>上传后显示文件与页码</span></div><span class="cfa-status" data-source-trace-status>待上传</span></div>
+          <div class="cfa-doc-frame"><div class="cfa-paper"><p class="cfa-paper-title"><strong data-source-heading>执行依据预览</strong></p><div class="cfa-paper-line cfa-paper-line-short"></div><div class="cfa-paper-highlight" data-source-snippet>上传执行依据后，在这里定位案号、法院和当事人来源。</div><div class="cfa-paper-line"></div><div class="cfa-paper-line"></div><div class="cfa-paper-line cfa-paper-line-short"></div></div></div>
+          <div class="cfa-section"><h3>候选处理</h3><p class="cfa-help">候选值不会自动进入最终文书。</p><div class="cfa-action-group"><button class="cfa-btn cfa-btn-primary" type="button">采纳</button><button class="cfa-btn" type="button">编辑后采纳</button><button class="cfa-btn" type="button">驳回</button></div></div>
+        </aside>
+      </div>
+    </div>
+
+    <div data-view="application" hidden>
+      <div class="cfa-workspace">
+        <aside class="cfa-sidebar">
+          <p class="cfa-progress">步骤 2 / 4</p>
+          <nav class="cfa-steps" aria-label="事项步骤">
+            <button class="cfa-step" type="button" data-go="facts" data-state="done"><span class="cfa-step-index"><i data-lucide="check" aria-hidden="true"></i></span><span>当事人与依据</span></button>
+            <button class="cfa-step" type="button" data-go="application" aria-current="step"><span class="cfa-step-index">2</span><span>申请内容</span></button>
+            <button class="cfa-step" type="button" data-go="review" data-unlock-review disabled><span class="cfa-step-index">3</span><span>检查与预览</span></button>
+            <button class="cfa-step" type="button" data-go="export" disabled><span class="cfa-step-index">4</span><span>导出</span></button>
+          </nav>
+          <div class="cfa-privacy"><i data-lucide="calculator" aria-hidden="true"></i><p>只进行确定性金额减法，不推定利率或法律结论。</p></div>
+        </aside>
+        <main class="cfa-main">
+          <header class="cfa-page-head"><div><h1>填写申请内容</h1><p>当前版本只支持一项主要金钱给付义务。</p></div><span class="cfa-status cfa-status-info">数据版本 8</span></header>
+          <div class="cfa-extract-banner"><div><strong>已从执行依据提取 1 项主要金钱义务</strong><p>来源：民事调解书第 5 页。提取内容不会自动进入申请书，请核对后确认。</p></div><button class="cfa-btn" type="button" data-source="obligation">查看原文</button></div>
+          <div class="cfa-boundary-note"><i data-lucide="shield-alert" aria-hidden="true"></i><span>未识别、结果冲突或解析失败时，系统不会猜测：你可以查看原文并改为手工填写；检测到多项独立义务时将直接阻断。</span></div>
+          <section class="cfa-amount-box">
+            <div class="cfa-form-head"><div><h2>未履行金额</h2><p>由你确认的文书金额减去已履行金额。</p></div><span class="cfa-status cfa-status-success">计算关系明确</span></div>
+            <div class="cfa-equation">
+              <div class="cfa-field"><label for="award-amount">文书确定金额（元） <span class="cfa-field-source"><button type="button" data-source="obligation">来源</button></span></label><input id="award-amount" value="120000.00"><span class="cfa-field-foot"><span>调解书第 5 页</span><span class="cfa-status cfa-status-warning" data-amount-status>待确认</span></span></div>
+              <span class="cfa-operator">−</span>
+              <div class="cfa-field"><label for="paid-amount">已履行金额（元）</label><input id="paid-amount" value="20000.00"><span class="cfa-field-foot"><span>付款记录 + 用户填写</span><span class="cfa-status cfa-status-success">已确认</span></span></div>
+              <span class="cfa-operator">=</span>
+              <div class="cfa-field cfa-result"><label for="unpaid-amount">尚未履行（元）</label><input id="unpaid-amount" value="100000.00" readonly></div>
+            </div>
+            <div class="cfa-confirm-band"><span>计算：¥120,000.00 − ¥20,000.00 = <strong>¥100,000.00</strong></span><button class="cfa-btn cfa-btn-primary" type="button" data-confirm-amount><i data-lucide="check" aria-hidden="true"></i>确认金额</button></div>
+            <article class="cfa-upload-slot is-complete cfa-section" aria-label="履行情况材料"><span class="cfa-upload-slot-icon"><i data-lucide="receipt-text" aria-hidden="true"></i></span><div><strong>付款记录_示例.jpg</strong><p>用于核对已履行金额 · 需人工确认</p></div><button class="cfa-btn" type="button" data-source="payment">查看</button></article>
+          </section>
+          <div class="cfa-form-stack cfa-section">
+            <section class="cfa-form-section">
+              <div class="cfa-form-head"><div><h2>请求事项</h2><p>由用户最终确认，不自动推定迟延履行利息参数。</p></div><span class="cfa-status cfa-status-warning" data-request-status>待确认</span></div>
+              <div class="cfa-form-grid">
+                <div class="cfa-field cfa-field-wide"><label for="request-text">申请请求</label><textarea id="request-text">一、请求依法强制被执行人支付尚未履行款项人民币100,000.00元；&#10;二、本案执行费用由被执行人承担。</textarea><span class="cfa-field-foot"><button class="cfa-btn cfa-btn-link" type="button" data-source="obligation">查看依据片段</button><button class="cfa-btn cfa-btn-primary" type="button" data-confirm-request>确认请求事项</button></span></div>
+              </div>
+            </section>
+            <section class="cfa-form-section">
+              <div class="cfa-form-head"><div><h2>法院与联系信息</h2><p>地方材料要求仍需你自行核对。</p></div></div>
+              <div class="cfa-form-grid">
+                <div class="cfa-field"><label for="filing-court">申请法院</label><input id="filing-court" placeholder="请手工选择或填写有管辖权的法院"><span class="cfa-field-foot"><span>用户填写，不自动等同于作出法院</span><span class="cfa-status cfa-status-warning">待填写</span></span></div>
+                <div class="cfa-field"><label for="phone">联系电话</label><input id="phone" value="138••••0000"><span class="cfa-field-foot"><span>用户填写</span><span class="cfa-status cfa-status-success">已确认</span></span></div>
+                <div class="cfa-field cfa-field-wide"><label for="bank-account">收款账户</label><input id="bank-account" placeholder="开户名 / 开户行 / 账号（默认脱敏）"></div>
+                <div class="cfa-field cfa-field-wide"><label for="property-clue">已知财产线索（选填）</label><textarea id="property-clue" placeholder="只填写你已知并确认的信息"></textarea></div>
+              </div>
+            </section>
+          </div>
+          <div class="cfa-page-actions"><button class="cfa-btn" type="button" data-go="facts"><i data-lucide="arrow-left" aria-hidden="true"></i>返回当事人与依据</button><div><span class="cfa-help" data-application-gate>请确认金额、请求事项并填写申请法院</span> <button class="cfa-btn cfa-btn-primary" type="button" data-go="review" data-proceed-review disabled>保存并运行检查 <i data-lucide="shield-check" aria-hidden="true"></i></button></div></div>
+        </main>
+        <aside class="cfa-context" aria-label="义务来源">
+          <div class="cfa-context-head"><div><h2 data-source-title>义务来源</h2><span class="cfa-caption" data-source-meta>民事调解书 · 第 5 页</span></div><span class="cfa-status cfa-status-warning">人工确认</span></div>
+          <div class="cfa-doc-frame"><div class="cfa-paper"><p class="cfa-paper-title"><strong data-source-heading>调解协议</strong></p><div class="cfa-paper-line"></div><div class="cfa-paper-highlight" data-source-snippet>周示例于2026年7月31日前向林示例支付人民币120,000元。</div><div class="cfa-paper-line"></div><div class="cfa-paper-line cfa-paper-line-short"></div></div></div>
+          <section class="cfa-section"><h3>来源记录</h3><p class="cfa-help">字段值同时保留“材料片段”和“用户确认”状态。</p><span class="cfa-status cfa-status-success">已关联到主要金钱义务</span></section>
+        </aside>
+      </div>
+    </div>
+
+    <div data-view="review" hidden>
+      <div class="cfa-workspace">
+        <aside class="cfa-sidebar">
+          <p class="cfa-progress">步骤 3 / 4</p>
+          <nav class="cfa-steps" aria-label="事项步骤">
+            <button class="cfa-step" type="button" data-go="facts" data-state="done"><span class="cfa-step-index"><i data-lucide="check" aria-hidden="true"></i></span><span>当事人与依据</span></button>
+            <button class="cfa-step" type="button" data-go="application" data-state="done"><span class="cfa-step-index"><i data-lucide="check" aria-hidden="true"></i></span><span>申请内容</span></button>
+            <button class="cfa-step" type="button" data-go="review" aria-current="step"><span class="cfa-step-index">3</span><span>检查与预览</span></button>
+            <button class="cfa-step" type="button" data-go="export" data-unlock-export disabled><span class="cfa-step-index">4</span><span>导出</span></button>
+          </nav>
+          <div class="cfa-privacy"><i data-lucide="refresh-cw" aria-hidden="true"></i><p>任一关键字段变化后，旧检查与文书立即失效。</p></div>
+        </aside>
+        <main class="cfa-main">
+          <header class="cfa-page-head"><div><h1>检查并预览申请书</h1><p>先处理阻断项，再生成当前数据版本的预览。</p></div><button class="cfa-btn" type="button"><i data-lucide="refresh-cw" aria-hidden="true"></i>重新检查</button></header>
+          <div class="cfa-issue-summary">
+            <div class="cfa-summary-cell"><span class="cfa-meta">阻断项</span><strong class="cfa-danger-count">0 项</strong></div>
+            <div class="cfa-summary-cell"><span class="cfa-meta">需关注</span><strong>2 项</strong></div>
+            <div class="cfa-summary-cell"><span class="cfa-meta">信息提示</span><strong>1 项</strong></div>
+          </div>
+          <section class="cfa-form-section">
+            <div class="cfa-section-head"><h2>检查结果</h2><span class="cfa-status cfa-status-success">数据版本 8 已通过</span></div>
+            <div class="cfa-issue-list">
+              <article class="cfa-issue"><span class="cfa-issue-dot"></span><div><strong>生效信息需要进一步核对</strong><p>材料中未发现明确的生效证明，请结合送达或生效材料人工确认。</p></div><button class="cfa-btn" type="button" data-go="facts">去核对</button></article>
+              <article class="cfa-issue"><span class="cfa-issue-dot"></span><div><strong>目标法院地方材料要求尚未核验</strong><p>系统使用全国基础规则，不代表目标法院没有额外材料要求。</p></div><button class="cfa-btn" type="button" data-go="application">查看法院</button></article>
+              <article class="cfa-issue"><span class="cfa-issue-dot cfa-issue-dot-info"></span><div><strong>当前文件是草稿</strong><p>系统不会向法院提交；请自行签字并按法院要求准备附件。</p></div><span class="cfa-status cfa-status-info">提示</span></article>
+            </div>
+          </section>
+          <div class="cfa-page-actions"><button class="cfa-btn" type="button" data-go="application"><i data-lucide="arrow-left" aria-hidden="true"></i>返回申请内容</button><div class="cfa-action-group"><button class="cfa-btn cfa-btn-danger" type="button" data-open="blocked">查看阻断示例</button><button class="cfa-btn cfa-btn-primary" type="button" data-generate><i data-lucide="file-cog" aria-hidden="true"></i><span>生成申请书预览</span></button></div></div>
+        </main>
+        <aside class="cfa-context" aria-label="申请书预览">
+          <div class="cfa-context-head"><div><h2>申请书预览</h2><span class="cfa-caption" data-preview-meta>尚未生成</span></div><span class="cfa-status" data-preview-status>等待生成</span></div>
+          <div class="cfa-preview-sheet" data-preview-sheet>
+            <h2>强制执行申请书</h2>
+            <p>申请执行人：林示例，身份信息已脱敏。</p>
+            <p>被执行人：周示例，身份信息已脱敏。</p>
+            <p><strong>申请事项</strong></p>
+            <p>请求依法强制被执行人支付尚未履行款项人民币100,000.00元。</p>
+            <p><strong>事实与理由</strong></p>
+            <p>示例市示例区人民法院作出的民事调解书已经发生法律效力……</p>
+            <div class="cfa-signature"><p>此致</p><p>示例市示例区人民法院</p><p>申请执行人：________</p><p>日期：____年__月__日</p></div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <div data-view="export" hidden>
+      <div class="cfa-workspace">
+        <aside class="cfa-sidebar">
+          <p class="cfa-progress">步骤 4 / 4</p>
+          <nav class="cfa-steps" aria-label="事项步骤">
+            <button class="cfa-step" type="button" data-go="facts" data-state="done"><span class="cfa-step-index"><i data-lucide="check" aria-hidden="true"></i></span><span>当事人与依据</span></button>
+            <button class="cfa-step" type="button" data-go="application" data-state="done"><span class="cfa-step-index"><i data-lucide="check" aria-hidden="true"></i></span><span>申请内容</span></button>
+            <button class="cfa-step" type="button" data-go="review" data-state="done"><span class="cfa-step-index"><i data-lucide="check" aria-hidden="true"></i></span><span>检查与预览</span></button>
+            <button class="cfa-step" type="button" data-go="export" aria-current="step"><span class="cfa-step-index">4</span><span>导出</span></button>
+          </nav>
+          <div class="cfa-privacy"><i data-lucide="file-lock-2" aria-hidden="true"></i><p>下载文件与数据版本、模板版本绑定。</p></div>
+        </aside>
+        <main class="cfa-main">
+          <header class="cfa-page-head"><div><h1>最终复核并导出</h1><p>完成最终确认后，下载当前版本对应的材料。</p></div><span class="cfa-status cfa-status-warning" data-export-page-status>待最终确认</span></header>
+          <div class="cfa-version-strip is-pending" data-version-strip><span data-version-message><i data-lucide="circle-alert" aria-hidden="true"></i> 文书与当前数据一致，等待最终确认</span><span>数据版本 8 · 模板 self_single_v1 · 今天 15:06</span></div>
+          <section class="cfa-download-list" aria-label="生成文件">
+            <article class="cfa-download"><span class="cfa-file-icon"><i data-lucide="file-type-2" aria-hidden="true"></i></span><div><strong>强制执行申请书.docx</strong><p>可在 Word / WPS 中继续复核与打印</p></div><button class="cfa-btn" type="button" data-download disabled><i data-lucide="download" aria-hidden="true"></i>下载</button></article>
+            <article class="cfa-download"><span class="cfa-file-icon"><i data-lucide="list-checks" aria-hidden="true"></i></span><div><strong>提交材料清单.pdf</strong><p>全国基础清单，地方要求需自行补充核对</p></div><button class="cfa-btn" type="button" data-download disabled><i data-lucide="download" aria-hidden="true"></i>下载</button></article>
+            <article class="cfa-download"><span class="cfa-file-icon"><i data-lucide="scan-search" aria-hidden="true"></i></span><div><strong>内部来源核对表.html</strong><p>仅供复核，记录关键字段的材料与用户填写来源</p></div><button class="cfa-btn" type="button" data-download disabled><i data-lucide="download" aria-hidden="true"></i>下载</button></article>
+          </section>
+          <section class="cfa-export-confirm">
+            <h2>最终确认</h2>
+            <div class="cfa-check-list" data-export-checks>
+              <label class="cfa-check-row"><input type="checkbox"><span>我已人工核对姓名、证件号、案号、法院、金额和请求事项。</span></label>
+              <label class="cfa-check-row"><input type="checkbox"><span>我知道这些文件仍是草稿，需要自行签字并按法院要求提交。</span></label>
+              <label class="cfa-check-row"><input type="checkbox"><span>我已自行核对目标法院的地方材料要求。</span></label>
+            </div>
+            <span class="cfa-status cfa-status-warning" data-export-status>完成 3 项确认后可下载</span>
+          </section>
+          <div class="cfa-page-actions"><button class="cfa-btn" type="button" data-go="review"><i data-lucide="arrow-left" aria-hidden="true"></i>返回预览</button><button class="cfa-btn cfa-btn-link" type="button" data-open="home">完成并返回首页</button></div>
+        </main>
+        <aside class="cfa-context" aria-label="导出说明">
+          <div class="cfa-context-head"><div><h2>导出前说明</h2><span class="cfa-caption">请保留人工复核</span></div></div>
+          <div class="cfa-panel">
+            <h3>系统没有执行的操作</h3>
+            <div class="cfa-pattern-stack"><span><i data-lucide="x" aria-hidden="true"></i> 没有登录法院平台</span><span><i data-lucide="x" aria-hidden="true"></i> 没有提交立案材料</span><span><i data-lucide="x" aria-hidden="true"></i> 没有缴费、送达或联系法院</span></div>
+          </div>
+          <div class="cfa-panel"><h3>建议打印前再检查</h3><p class="cfa-help">分页、签名位置、证件号码、收款账户及所有金额。</p></div>
+        </aside>
+      </div>
+    </div>
+
+    <div data-view="blocked" hidden>
+      <main class="cfa-blocked">
+        <section class="cfa-blocked-card">
+          <span class="cfa-blocked-icon"><i data-lucide="octagon-x" aria-hidden="true"></i></span>
+          <span class="cfa-status cfa-status-danger">当前版本不适用</span>
+          <h1>材料中检测到多名被执行人</h1>
+          <p class="cfa-lead">当前版本只支持本人办理、一名申请执行人和一名被执行人的简单案件，因此不能继续生成申请书。</p>
+          <div class="cfa-detected"><strong>检测结果</strong><ul><li>调解书第 1 页出现 2 名对方当事人</li><li>调解协议包含相互独立的给付义务</li></ul></div>
+          <p>如果这是 OCR 误识别，可以返回第一步核对执行依据和识别结果；如果案件确有多名被执行人，请改由法律专业人员人工处理。</p>
+          <div class="cfa-action-group"><button class="cfa-btn" type="button" data-go="facts"><i data-lucide="arrow-left" aria-hidden="true"></i>返回当事人与依据</button><button class="cfa-btn cfa-btn-link" type="button" data-open="home">关闭事项</button></div>
+        </section>
+      </main>
+    </div>
+
+    <div data-view="spec" hidden>
+      <main class="cfa-spec">
+        <header class="cfa-page-head"><div><h1>实现统一规范</h1><p>围绕“来源、确认、阻断、草稿边界”建立稳定的产品语言。</p></div><span class="cfa-status">桌面基准 1280px</span></header>
+        <div class="cfa-spec-grid">
+          <section class="cfa-spec-block"><h2>核心色彩</h2><div class="cfa-swatches"><div class="cfa-swatch"><div class="cfa-swatch-color cfa-swatch-brand"></div><label>可信主色</label></div><div class="cfa-swatch"><div class="cfa-swatch-color cfa-swatch-accent"></div><label>来源强调</label></div><div class="cfa-swatch"><div class="cfa-swatch-color cfa-swatch-success"></div><label>已确认</label></div><div class="cfa-swatch"><div class="cfa-swatch-color cfa-swatch-warning"></div><label>需关注</label></div><div class="cfa-swatch"><div class="cfa-swatch-color cfa-swatch-danger"></div><label>阻断</label></div></div></section>
+          <section class="cfa-spec-block"><h2>状态语言</h2><div class="cfa-pattern-row"><span class="cfa-status cfa-status-success">已确认</span><span class="cfa-status cfa-status-warning">待人工核对</span><span class="cfa-status cfa-status-danger">阻断生成</span><span class="cfa-status cfa-status-info">信息提示</span><span class="cfa-status">用户填写</span></div><p class="cfa-help">颜色始终与文字、图标或状态名称同时出现，不单独表达含义。</p></section>
+          <section class="cfa-spec-block"><h2>操作层级</h2><div class="cfa-pattern-row"><button class="cfa-btn cfa-btn-primary" type="button">主要操作</button><button class="cfa-btn" type="button">次要操作</button><button class="cfa-btn cfa-btn-link" type="button">文字操作</button><button class="cfa-btn cfa-btn-danger" type="button">风险操作</button><button class="cfa-btn" type="button" disabled>不可用</button></div><p class="cfa-help">每组只保留一个主要操作；下载、生成受版本与人工确认门禁控制。</p></section>
+          <section class="cfa-spec-block"><h2>字段模式</h2><div class="cfa-field"><label for="pattern-field">案号 <span class="cfa-field-source"><i data-lucide="scan-text" aria-hidden="true"></i><button type="button">查看来源</button></span></label><input id="pattern-field" value="（2026）示例民初 001 号"><span class="cfa-field-foot"><span>民事调解书 · 第 1 页</span><span class="cfa-status cfa-status-success">已确认</span></span></div></section>
+          <section class="cfa-spec-block"><h2>问题优先级</h2><div class="cfa-pattern-stack"><div class="cfa-boundary-note" style="border-left-color:var(--cfa-danger);background:var(--cfa-danger-soft)"><i data-lucide="octagon-x" aria-hidden="true"></i><span><strong>阻断：</strong>必须修正，不提供忽略继续。</span></div><div class="cfa-boundary-note" style="border-left-color:var(--cfa-warning);background:var(--cfa-warning-soft)"><i data-lucide="triangle-alert" aria-hidden="true"></i><span><strong>警告：</strong>允许继续，但要求人工核对。</span></div><div class="cfa-boundary-note" style="border-left-color:var(--cfa-brand);background:var(--cfa-surface-soft)"><i data-lucide="info" aria-hidden="true"></i><span><strong>提示：</strong>说明草稿与外部操作边界。</span></div></div></section>
+          <section class="cfa-spec-block"><h2>布局规则</h2><div class="cfa-pattern-stack"><span><strong>顶部：</strong>事项、保存状态、数据版本、本地运行状态</span><span><strong>左侧：</strong>四步流程与完成状态</span><span><strong>中央：</strong>当前任务和唯一主要操作</span><span><strong>右侧：</strong>材料来源、问题或文书预览</span><span><strong>窄屏：</strong>右侧转抽屉，四步导航压缩；不承诺完整移动体验</span></div></section>
+          <section class="cfa-spec-block"><h2>材料与候选状态</h2><div class="cfa-pattern-row"><span class="cfa-status">待上传</span><span class="cfa-status cfa-status-info">上传中</span><span class="cfa-status cfa-status-info">OCR 中</span><span class="cfa-status cfa-status-warning">已提取待确认</span><span class="cfa-status cfa-status-success">用户已确认</span><span class="cfa-status cfa-status-warning">低质量</span><span class="cfa-status cfa-status-danger">失败重试</span><span class="cfa-status cfa-status-danger">失效待重确认</span></div><p class="cfa-help">关键字段统一遵循：待上传 → 处理中 → 已提取待确认 → 用户已确认/已修改；来源或数据变化后进入“失效待重确认”。</p></section>
+          <section class="cfa-spec-block"><h2>可复用组件</h2><div class="cfa-component-map"><div class="cfa-component-item"><code>AppHeader</code><span>工作台／待上传／已识别案号</span></div><div class="cfa-component-item"><code>StepNavigation</code><span>默认／当前／完成／禁用</span></div><div class="cfa-component-item"><code>EligibilityGate</code><span>1–4 条件／单一确认门禁</span></div><div class="cfa-component-item"><code>UploadField</code><span>待上传／处理中／完成／失败</span></div><div class="cfa-component-item"><code>PartyIdentitySection</code><span>正反面上传／识别候选／人工确认</span></div><div class="cfa-component-item"><code>SourceField</code><span>候选／确认／失效</span></div><div class="cfa-component-item"><code>StatusBadge</code><span>中性／信息／成功／警告／阻断</span></div><div class="cfa-component-item"><code>ActionButton</code><span>主操作／次操作／文字／风险</span></div><div class="cfa-component-item"><code>ConfirmBand</code><span>计算确认／身份确认／流程门禁</span></div><div class="cfa-component-item"><code>IssueRow</code><span>阻断／警告／提示</span></div><div class="cfa-component-item"><code>SourceDialog</code><span>桌面侧栏／窄屏弹窗</span></div><div class="cfa-component-item"><code>DocumentPreview</code><span>等待生成／当前版本／已失效</span></div><div class="cfa-component-item"><code>DownloadRow</code><span>锁定／可下载／版本一致</span></div><div class="cfa-component-item"><code>VersionStrip</code><span>待确认／一致／失效</span></div></div></section>
+          <section class="cfa-spec-block"><h2>动效基准</h2><div class="cfa-motion-list"><div class="cfa-motion-row"><strong>反馈 140ms</strong><span class="cfa-help">按钮按压、悬停、焦点与状态标签切换。</span></div><div class="cfa-motion-row"><strong>状态 220ms</strong><span class="cfa-help">Header 标题替换、步骤推进、来源高亮与弹窗进入。</span></div><div class="cfa-motion-row"><strong>流程 420ms</strong><span class="cfa-help">上传完成、内容展开、预览生成；使用位移与透明度共同表达因果。</span></div><div class="cfa-motion-row"><strong>可访问性</strong><span class="cfa-help">系统开启“减少动态效果”后，全部动效降为即时状态切换。</span></div></div></section>
+        </div>
+      </main>
+    </div>
+
+    <dialog class="cfa-source-dialog" data-source-dialog aria-labelledby="mobile-source-title">
+      <div class="cfa-source-dialog-head"><div><h2 id="mobile-source-title" data-mobile-source-title>材料来源</h2><p class="cfa-caption" data-mobile-source-meta>文件与页码</p></div><button class="cfa-btn cfa-icon-btn" type="button" data-close-source aria-label="关闭来源查看"><i data-lucide="x" aria-hidden="true"></i></button></div>
+      <p class="cfa-help">以下为材料中的定位片段；候选值仍需人工确认。</p>
+      <blockquote data-mobile-source-snippet>来源片段</blockquote>
+    </dialog>
+  </section>
+
+  <script>
+    (() => {
+      const root = document.getElementById('cfa-design-review');
+      if (!root) return;
+
+      const workspaceViews = new Set(['facts', 'application', 'review', 'export']);
+      const caseNumber = '（2026）示例民初 001 号';
+      let basisUploaded = false;
+      let basisProcessing = false;
+      let currentMatterState = 'pending';
+      const identityUploads = { 'applicant-front': false, 'applicant-back': false, 'respondent-front': false, 'respondent-back': false };
+      let applicantConfirmed = false;
+      let respondentConfirmed = false;
+      let amountConfirmed = false;
+      let requestConfirmed = false;
+      let previewGenerated = false;
+      const titles = {
+        home: { label: '工作台', title: '本地事项工作台', meta: '' },
+        application: { label: '当前事项', title: caseNumber, meta: '自动保存 · 数据版本 8' },
+        review: { label: '当前事项', title: caseNumber, meta: '已检查 · 数据版本 8' },
+        export: { label: '当前事项', title: caseNumber, meta: '待最终确认 · 数据版本 8' },
+        blocked: { label: '适用性门禁', title: '事项适用性检查', meta: '生成已停止' },
+        spec: { label: '交付规范', title: '设计实现基准', meta: '组件与动效 v0.5' }
+      };
+
+      function headerFor(name) {
+        if (name === 'facts') {
+          if (basisUploaded) return { label: '当前事项', title: caseNumber, meta: '已识别 · 数据版本 1' };
+          if (basisProcessing) return { label: '当前事项', title: '正在识别执行依据', meta: '本机处理中' };
+          return { label: '当前事项', title: '待上传执行依据', meta: '新事项 · 自动保存' };
+        }
+        return titles[name];
+      }
+
+      function updateHeader(name) {
+        const next = headerFor(name);
+        if (!next) return;
+        const label = root.querySelector('[data-context-label]');
+        const title = root.querySelector('[data-matter-title]');
+        const meta = root.querySelector('[data-matter-meta]');
+        if (label) label.textContent = next.label;
+        if (title) {
+          title.textContent = next.title;
+          title.classList.remove('is-changing');
+          void title.offsetWidth;
+          title.classList.add('is-changing');
+        }
+        if (meta) {
+          meta.textContent = next.meta;
+          meta.hidden = !next.meta;
+          const tone = name === 'blocked' ? ' cfa-status-danger' : name === 'export' ? ' cfa-status-warning' : basisUploaded && workspaceViews.has(name) ? ' cfa-status-success' : '';
+          meta.className = `cfa-status cfa-header-status${tone}`;
+        }
+      }
+
+      function showView(name) {
+        if (!titles[name] && name !== 'facts') return;
+        root.querySelectorAll('[data-view]').forEach((view) => {
+          const active = view.dataset.view === name;
+          view.hidden = !active;
+          view.classList.toggle('is-entering', active);
+          if (active) setTimeout(() => view.classList.remove('is-entering'), 440);
+        });
+        root.querySelectorAll('[data-open]').forEach((button) => {
+          if (button.classList.contains('cfa-view-tab')) button.setAttribute('aria-pressed', String(button.dataset.open === name));
+        });
+        updateHeader(name);
+        if (workspaceViews.has(name)) {
+          const current = root.querySelector(`[data-view="${name}"] .cfa-step[data-go="${name}"]`);
+          if (current) current.setAttribute('aria-current', 'step');
+        }
+      }
+
+      function refreshIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
+      }
+
+      function setBasisState(uploaded, animate = true) {
+        basisUploaded = uploaded;
+        basisProcessing = false;
+        currentMatterState = uploaded ? 'uploaded' : 'pending';
+        const slot = root.querySelector('[data-basis-upload]');
+        const icon = root.querySelector('[data-basis-icon]');
+        const name = root.querySelector('[data-basis-name]');
+        const description = root.querySelector('[data-basis-description]');
+        const actions = root.querySelector('[data-basis-actions]');
+        const progress = root.querySelector('[data-upload-progress]');
+        const basisStatus = root.querySelector('[data-basis-status]');
+        const factsStatus = root.querySelector('[data-facts-status]');
+        const traceStatus = root.querySelector('[data-source-trace-status]');
+        root.querySelectorAll('[data-after-basis]').forEach((section) => {
+          section.hidden = !uploaded;
+          section.classList.toggle('is-revealed', uploaded && animate);
+        });
+        if (slot) {
+          slot.classList.remove('is-uploading');
+          slot.classList.toggle('is-complete', uploaded);
+          slot.setAttribute('aria-label', uploaded ? '已上传执行依据' : '待上传执行依据');
+        }
+        if (progress) progress.hidden = true;
+        if (icon) icon.innerHTML = `<i data-lucide="${uploaded ? 'file-check-2' : 'file-up'}" aria-hidden="true"></i>`;
+        if (name) name.textContent = uploaded ? '民事调解书_示例.pdf' : '上传执行依据';
+        if (description) description.textContent = uploaded ? '6 页 · 文本可读 · 已提取案号、法院和当事人候选' : 'PDF、DOCX、JPG、PNG · 文件仅在本机处理';
+        if (actions) actions.innerHTML = uploaded
+          ? '<button class="cfa-btn" type="button" data-source="judgment">查看</button><button class="cfa-btn" type="button" data-upload-basis>替换</button><button class="cfa-btn cfa-btn-link" type="button" data-reset-basis>移除</button>'
+          : '<button class="cfa-btn cfa-btn-primary" type="button" data-upload-basis>选择文件</button>';
+        if (basisStatus) {
+          basisStatus.textContent = uploaded ? '解析完成' : '待上传';
+          basisStatus.className = uploaded ? 'cfa-status cfa-status-success' : 'cfa-status';
+        }
+        if (factsStatus) {
+          factsStatus.textContent = uploaded ? '1 项待确认' : '等待执行依据';
+          factsStatus.className = uploaded ? 'cfa-status cfa-status-warning' : 'cfa-status';
+        }
+        const sourceTitle = root.querySelector('[data-view="facts"] [data-source-title]');
+        const sourceMeta = root.querySelector('[data-view="facts"] [data-source-meta]');
+        const sourceHeading = root.querySelector('[data-view="facts"] [data-source-heading]');
+        const sourceSnippet = root.querySelector('[data-view="facts"] [data-source-snippet]');
+        if (sourceTitle) sourceTitle.textContent = uploaded ? '字段来源' : '等待材料';
+        if (sourceMeta) sourceMeta.textContent = uploaded ? '民事调解书 · 第 1 页' : '上传后显示文件与页码';
+        if (sourceHeading) sourceHeading.textContent = uploaded ? '民事调解书' : '执行依据预览';
+        if (sourceSnippet) sourceSnippet.textContent = uploaded ? '申请执行人：林示例。被执行人：周示例。' : '上传执行依据后，在这里定位案号、法院和当事人来源。';
+        if (traceStatus) {
+          traceStatus.textContent = uploaded ? '可追溯' : '待上传';
+          traceStatus.className = uploaded ? 'cfa-status cfa-status-success' : 'cfa-status';
+        }
+        updateFactsGate();
+        refreshIcons();
+        const current = root.querySelector('[data-view="facts"]');
+        if (current && !current.hidden) updateHeader('facts');
+      }
+
+      const identityCopy = {
+        'applicant-front': { empty: '请上传 · JPG、PNG', complete: '已上传 · 文字清晰' },
+        'applicant-back': { empty: '请上传 · JPG、PNG', complete: '已上传 · 有效期已识别' },
+        'respondent-front': { empty: '如有请上传 · JPG、PNG', complete: '已上传 · 文字清晰' },
+        'respondent-back': { empty: '如有请上传 · JPG、PNG', complete: '已上传 · 有效期已识别' }
+      };
+
+      function setIdentityState(key, complete, animate = true) {
+        const slot = root.querySelector(`[data-identity-upload-slot="${key}"]`);
+        if (!slot || !identityCopy[key]) return;
+        identityUploads[key] = complete;
+        slot.classList.remove('is-uploading');
+        slot.classList.toggle('is-complete', complete);
+        slot.classList.toggle('is-revealed', complete && animate);
+        const icon = slot.querySelector('.cfa-upload-slot-icon');
+        const description = slot.querySelector('[data-identity-description]');
+        const button = slot.querySelector('[data-upload-identity]');
+        if (icon) icon.innerHTML = `<i data-lucide="${complete ? 'badge-check' : 'image-plus'}" aria-hidden="true"></i>`;
+        if (description) description.textContent = complete ? identityCopy[key].complete : identityCopy[key].empty;
+        if (button) {
+          button.disabled = false;
+          button.textContent = complete ? '更换' : '上传';
+          button.classList.toggle('cfa-btn-primary', !complete && key.endsWith('front'));
+        }
+        if (key.startsWith('applicant-')) updateApplicantCandidateState();
+        refreshIcons();
+      }
+
+      function updateApplicantCandidateState() {
+        const ready = identityUploads['applicant-front'] && identityUploads['applicant-back'];
+        const nameField = root.querySelector('#applicant-name');
+        const idField = root.querySelector('#applicant-id');
+        const addressField = root.querySelector('#applicant-address');
+        const fields = [nameField, idField, addressField].filter(Boolean);
+        if (ready) {
+          if (nameField && !nameField.value) nameField.value = '林示例';
+          if (idField && !idField.value) idField.value = '4401••••••••1234';
+          if (addressField && !addressField.value) addressField.value = '示例市示例区示例路 8 号';
+        } else {
+          fields.forEach((field) => { field.value = ''; });
+          applicantConfirmed = false;
+        }
+        fields.forEach((field) => { field.disabled = !ready; });
+        root.querySelectorAll('[data-applicant-source]').forEach((button) => { button.disabled = !ready; });
+        const revealId = root.querySelector('[aria-label="查看申请执行人身份证号明文"]');
+        if (revealId) revealId.disabled = !ready;
+        root.querySelectorAll('[data-applicant-field-source]').forEach((node) => { node.textContent = ready ? '身份证识别候选' : '等待身份证'; });
+        const confirm = root.querySelector('[data-confirm-applicant]');
+        if (confirm) confirm.disabled = !ready || applicantConfirmed;
+        updateApplicantConfirmationUI();
+      }
+
+      function updateApplicantConfirmationUI() {
+        const ready = identityUploads['applicant-front'] && identityUploads['applicant-back'];
+        const status = root.querySelector('[data-applicant-status]');
+        const gate = root.querySelector('[data-applicant-gate]');
+        const confirm = root.querySelector('[data-confirm-applicant]');
+        root.querySelectorAll('[data-applicant-field-status]').forEach((node) => {
+          node.textContent = applicantConfirmed ? '已确认' : ready ? '待确认' : '待识别';
+          node.className = applicantConfirmed ? 'cfa-status cfa-status-success' : 'cfa-status cfa-status-warning';
+        });
+        if (status) {
+          status.textContent = applicantConfirmed ? '本人 · 已确认' : ready ? '识别完成 · 待确认' : '待上传身份证';
+          status.className = applicantConfirmed ? 'cfa-status cfa-status-success' : 'cfa-status cfa-status-warning';
+        }
+        if (gate) gate.textContent = applicantConfirmed ? '申请执行人信息已确认' : ready ? '请核对识别结果后确认' : '请先上传身份证正反面';
+        if (confirm) {
+          confirm.disabled = !ready || applicantConfirmed;
+          confirm.innerHTML = applicantConfirmed ? '<i data-lucide="check" aria-hidden="true"></i>已确认申请执行人信息' : '<i data-lucide="check" aria-hidden="true"></i>确认申请执行人信息';
+        }
+        refreshIcons();
+      }
+
+      function setApplicantConfirmed(confirmed) {
+        const ready = identityUploads['applicant-front'] && identityUploads['applicant-back'];
+        applicantConfirmed = Boolean(confirmed && ready);
+        updateApplicantConfirmationUI();
+        updateFactsGate();
+      }
+
+      function setRespondentConfirmed(confirmed) {
+        respondentConfirmed = Boolean(confirmed);
+        const button = root.querySelector('[data-confirm-candidate]');
+        if (button) {
+          button.textContent = respondentConfirmed ? '已确认' : '确认姓名';
+          button.disabled = respondentConfirmed;
+        }
+        updateFactsGate();
+      }
+
+      function updateFactsGate() {
+        const ready = basisUploaded && applicantConfirmed && respondentConfirmed;
+        const factsStatus = root.querySelector('[data-facts-status]');
+        const factsGate = root.querySelector('[data-facts-gate]');
+        const proceed = root.querySelector('[data-proceed-application]');
+        const unlock = [...root.querySelectorAll('[data-unlock-application]')];
+        if (proceed) proceed.disabled = !ready;
+        unlock.forEach((button) => { button.disabled = !ready; });
+        if (!basisUploaded) {
+          if (factsStatus) { factsStatus.textContent = basisProcessing ? '本机解析中' : '等待执行依据'; factsStatus.className = basisProcessing ? 'cfa-status cfa-status-info' : 'cfa-status'; }
+          if (factsGate) factsGate.textContent = '请先上传并核对执行依据';
+          return;
+        }
+        const pending = Number(!applicantConfirmed) + Number(!respondentConfirmed);
+        if (factsStatus) {
+          factsStatus.textContent = ready ? '关键项已确认' : `${pending} 项待确认`;
+          factsStatus.className = ready ? 'cfa-status cfa-status-success' : 'cfa-status cfa-status-warning';
+        }
+        if (factsGate) factsGate.textContent = ready ? '可继续提取申请内容' : !applicantConfirmed ? '请上传并确认申请执行人身份证信息' : '请确认被执行人姓名';
+      }
+
+      function startIdentityUpload(key) {
+        const slot = root.querySelector(`[data-identity-upload-slot="${key}"]`);
+        if (!slot || !identityCopy[key]) return;
+        if (key.startsWith('applicant-')) setApplicantConfirmed(false);
+        slot.classList.add('is-uploading');
+        slot.classList.remove('is-complete');
+        const description = slot.querySelector('[data-identity-description]');
+        const button = slot.querySelector('[data-upload-identity]');
+        if (description) description.textContent = '文件保存在本机 · 正在识别';
+        if (button) { button.textContent = '处理中'; button.disabled = true; }
+        setTimeout(() => setIdentityState(key, true), 520);
+      }
+
+      function invalidateFromBasis() {
+        Object.keys(identityUploads).forEach((key) => setIdentityState(key, false, false));
+        setApplicantConfirmed(false);
+        setRespondentConfirmed(false);
+        amountConfirmed = false;
+        requestConfirmed = false;
+        const confirmAmountButton = root.querySelector('[data-confirm-amount]');
+        const confirmRequestButton = root.querySelector('[data-confirm-request]');
+        if (confirmAmountButton) { confirmAmountButton.disabled = false; confirmAmountButton.textContent = '确认金额'; }
+        if (confirmRequestButton) { confirmRequestButton.disabled = false; confirmRequestButton.textContent = '确认请求事项'; }
+        const amountStatus = root.querySelector('[data-amount-status]');
+        const requestStatus = root.querySelector('[data-request-status]');
+        if (amountStatus) { amountStatus.textContent = '待确认'; amountStatus.className = 'cfa-status cfa-status-warning'; }
+        if (requestStatus) { requestStatus.textContent = '待确认'; requestStatus.className = 'cfa-status cfa-status-warning'; }
+        const court = root.querySelector('#filing-court');
+        if (court) court.value = '';
+        updateApplicationGate();
+        previewGenerated = false;
+        const generate = root.querySelector('[data-generate]');
+        const generateLabel = generate && generate.querySelector('span');
+        if (generateLabel) generateLabel.textContent = '生成申请书预览';
+        const previewStatus = root.querySelector('[data-preview-status]');
+        const previewMeta = root.querySelector('[data-preview-meta]');
+        if (previewStatus) { previewStatus.textContent = '等待生成'; previewStatus.className = 'cfa-status'; }
+        if (previewMeta) previewMeta.textContent = '尚未生成';
+        root.querySelectorAll('[data-unlock-export]').forEach((button) => { button.disabled = true; });
+        root.querySelectorAll('[data-export-checks] input').forEach((item) => { item.checked = false; });
+        updateExport();
+      }
+
+      function loadMatterState(state) {
+        currentMatterState = state === 'uploaded' ? 'uploaded' : 'pending';
+        invalidateFromBasis();
+        setBasisState(currentMatterState === 'uploaded', false);
+        if (currentMatterState === 'uploaded') {
+          setIdentityState('applicant-front', true, false);
+          setIdentityState('applicant-back', true, false);
+          setApplicantConfirmed(true);
+          setRespondentConfirmed(true);
+        }
+      }
+
+      function startBasisUpload() {
+        invalidateFromBasis();
+        setBasisState(false, false);
+        currentMatterState = 'pending';
+        basisProcessing = true;
+        const slot = root.querySelector('[data-basis-upload]');
+        const name = root.querySelector('[data-basis-name]');
+        const description = root.querySelector('[data-basis-description]');
+        const actions = root.querySelector('[data-basis-actions]');
+        const progress = root.querySelector('[data-upload-progress]');
+        const basisStatus = root.querySelector('[data-basis-status]');
+        if (slot) slot.classList.add('is-uploading');
+        if (name) name.textContent = '正在读取执行依据';
+        if (description) description.textContent = '文件已保存在本机 · 正在提取文字与案号';
+        if (actions) actions.innerHTML = '<button class="cfa-btn" type="button" disabled>处理中</button>';
+        if (progress) progress.hidden = false;
+        if (basisStatus) { basisStatus.textContent = '本机解析中'; basisStatus.className = 'cfa-status cfa-status-info'; }
+        updateHeader('facts');
+        updateFactsGate();
+        setTimeout(() => setBasisState(true), 900);
+      }
+
+      root.querySelectorAll('.cfa-step').forEach((button) => {
+        const label = button.querySelector('span:last-child');
+        if (label) button.setAttribute('aria-label', label.textContent.trim());
+      });
+
+      root.addEventListener('click', (event) => {
+        const uploadBasis = event.target.closest('[data-upload-basis]');
+        if (uploadBasis && root.contains(uploadBasis)) startBasisUpload();
+        const uploadIdentity = event.target.closest('[data-upload-identity]');
+        if (uploadIdentity && root.contains(uploadIdentity)) startIdentityUpload(uploadIdentity.dataset.uploadIdentity);
+        const resetBasis = event.target.closest('[data-reset-basis]');
+        if (resetBasis && root.contains(resetBasis)) {
+          invalidateFromBasis();
+          setBasisState(false);
+        }
+        const openButton = event.target.closest('[data-open]');
+        if (openButton && root.contains(openButton)) {
+          if (openButton.dataset.matterState) loadMatterState(openButton.dataset.matterState);
+          showView(openButton.dataset.open);
+        }
+        const stepButton = event.target.closest('[data-go]');
+        if (stepButton && root.contains(stepButton)) showView(stepButton.dataset.go);
+      });
+
+      const eligibility = [...root.querySelectorAll('[data-eligibility] input')];
+      const createButton = root.querySelector('[data-create]');
+      function updateEligibility() {
+        if (createButton) createButton.disabled = !eligibility.every((item) => item.checked);
+      }
+      eligibility.forEach((item) => item.addEventListener('change', updateEligibility));
+      if (createButton) createButton.addEventListener('click', () => {
+        loadMatterState('pending');
+        showView('facts');
+      });
+
+      const confirmCandidate = root.querySelector('[data-confirm-candidate]');
+      const confirmApplicant = root.querySelector('[data-confirm-applicant]');
+      const proceedApplication = root.querySelector('[data-proceed-application]');
+      if (confirmApplicant) confirmApplicant.addEventListener('click', () => setApplicantConfirmed(true));
+      if (confirmCandidate) {
+        confirmCandidate.addEventListener('click', () => setRespondentConfirmed(true));
+      }
+
+      const confirmAmount = root.querySelector('[data-confirm-amount]');
+      const confirmRequest = root.querySelector('[data-confirm-request]');
+      const filingCourt = root.querySelector('#filing-court');
+      const proceedReview = root.querySelector('[data-proceed-review]');
+      const unlockReview = [...root.querySelectorAll('[data-unlock-review]')];
+      const applicationGate = root.querySelector('[data-application-gate]');
+      function updateApplicationGate() {
+        const ready = amountConfirmed && requestConfirmed && Boolean(filingCourt && filingCourt.value.trim());
+        if (proceedReview) proceedReview.disabled = !ready;
+        unlockReview.forEach((button) => { button.disabled = !ready; });
+        if (applicationGate) applicationGate.textContent = ready ? '关键申请内容已确认' : '请确认金额、请求事项并填写申请法院';
+      }
+      if (confirmAmount) confirmAmount.addEventListener('click', () => {
+        amountConfirmed = true;
+        confirmAmount.textContent = '金额已确认';
+        confirmAmount.disabled = true;
+        const status = root.querySelector('[data-amount-status]');
+        if (status) { status.textContent = '已确认'; status.className = 'cfa-status cfa-status-success'; }
+        updateApplicationGate();
+      });
+      if (confirmRequest) confirmRequest.addEventListener('click', () => {
+        requestConfirmed = true;
+        confirmRequest.textContent = '请求事项已确认';
+        confirmRequest.disabled = true;
+        const status = root.querySelector('[data-request-status]');
+        if (status) { status.textContent = '已确认'; status.className = 'cfa-status cfa-status-success'; }
+        updateApplicationGate();
+      });
+      if (filingCourt) filingCourt.addEventListener('input', updateApplicationGate);
+
+      const sourceContent = {
+        judgment: ['民事调解书', '第 1 / 6 页', '民事调解书', '双方当事人自愿达成如下协议：被申请人于约定日期前支付人民币……'],
+        payment: ['付款记录', '第 1 / 1 页', '付款凭证', '付款金额：人民币20,000.00元；其余文字需要人工核对。'],
+        applicant: ['申请执行人姓名', '身份证明 · 第 1 页', '居民身份证', '姓名：林示例；公民身份号码：4401••••••••1234。'],
+        respondent: ['被执行人姓名', '民事调解书 · 第 1 页', '民事调解书', '被执行人：周示例。'],
+        case: ['案号与法院', '民事调解书 · 第 1 页', '民事调解书', '（2026）示例民初 001 号；示例市示例区人民法院。'],
+        obligation: ['主要金钱义务', '民事调解书 · 第 5 页', '调解协议', '周示例于2026年7月31日前向林示例支付人民币120,000元。']
+      };
+      const sourceDialog = root.querySelector('[data-source-dialog]');
+      const closeSource = root.querySelector('[data-close-source]');
+      let lastSourceTrigger = null;
+      if (closeSource && sourceDialog) closeSource.addEventListener('click', () => sourceDialog.close());
+      if (sourceDialog) sourceDialog.addEventListener('close', () => { if (lastSourceTrigger) lastSourceTrigger.focus(); });
+      root.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-source]');
+        if (!button || !root.contains(button)) return;
+        const values = sourceContent[button.dataset.source];
+        if (!values) return;
+        if (window.matchMedia('(max-width: 980px)').matches && sourceDialog) {
+          lastSourceTrigger = button;
+          const mobileTitle = sourceDialog.querySelector('[data-mobile-source-title]');
+          const mobileMeta = sourceDialog.querySelector('[data-mobile-source-meta]');
+          const mobileSnippet = sourceDialog.querySelector('[data-mobile-source-snippet]');
+          if (mobileTitle) mobileTitle.textContent = values[0];
+          if (mobileMeta) mobileMeta.textContent = values[1];
+          if (mobileSnippet) mobileSnippet.textContent = values[3];
+          if (!sourceDialog.open) sourceDialog.showModal();
+          return;
+        }
+        const view = button.closest('[data-view]');
+        if (!view) return;
+        const title = view.querySelector('[data-source-title]');
+        const meta = view.querySelector('[data-source-meta]');
+        const heading = view.querySelector('[data-source-heading]');
+        const snippet = view.querySelector('[data-source-snippet]');
+        if (title) title.textContent = values[0];
+        if (meta) meta.textContent = values[1];
+        if (heading) heading.textContent = values[2];
+        if (snippet) snippet.textContent = values[3];
+        const frame = view.querySelector('.cfa-doc-frame');
+        if (frame) { frame.classList.remove('cfa-flash'); void frame.offsetWidth; frame.classList.add('cfa-flash'); }
+      });
+
+      const generateButton = root.querySelector('[data-generate]');
+      if (generateButton) {
+        generateButton.addEventListener('click', () => {
+          if (previewGenerated) { showView('export'); return; }
+          const label = generateButton.querySelector('span');
+          const status = root.querySelector('[data-preview-status]');
+          const meta = root.querySelector('[data-preview-meta]');
+          if (label) label.textContent = '继续最终复核与导出';
+          if (status) { status.textContent = '数据版本 8'; status.className = 'cfa-status cfa-status-success'; }
+          if (meta) meta.textContent = '模板 self_single_v1 · 无占位符残留';
+          root.querySelectorAll('[data-unlock-export]').forEach((button) => { button.disabled = false; });
+          previewGenerated = true;
+        });
+      }
+
+      const exportChecks = [...root.querySelectorAll('[data-export-checks] input')];
+      const downloadButtons = [...root.querySelectorAll('[data-download]')];
+      const exportStatus = root.querySelector('[data-export-status]');
+      const exportPageStatus = root.querySelector('[data-export-page-status]');
+      const versionStrip = root.querySelector('[data-version-strip]');
+      const versionMessage = root.querySelector('[data-version-message]');
+      function updateExport() {
+        const ready = exportChecks.every((item) => item.checked);
+        downloadButtons.forEach((button) => { button.disabled = !ready; });
+        if (exportStatus) {
+          exportStatus.textContent = ready ? '已完成最终确认，可以下载' : '完成 3 项确认后可下载';
+          exportStatus.className = ready ? 'cfa-status cfa-status-success' : 'cfa-status cfa-status-warning';
+        }
+        if (exportPageStatus) {
+          exportPageStatus.textContent = ready ? '可下载' : '待最终确认';
+          exportPageStatus.className = ready ? 'cfa-status cfa-status-success' : 'cfa-status cfa-status-warning';
+        }
+        if (versionStrip) versionStrip.classList.toggle('is-pending', !ready);
+        if (versionMessage) versionMessage.textContent = ready ? '文书与当前数据一致，可以下载' : '文书与当前数据一致，等待最终确认';
+      }
+      exportChecks.forEach((item) => item.addEventListener('change', updateExport));
+    })();
+  </script>
+</div>
