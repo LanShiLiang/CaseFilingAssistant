@@ -2,6 +2,7 @@
 
 import { LoaderCircle } from "lucide-react";
 
+import { MatterFormProvider } from "./MatterForm";
 import { MatterHeader } from "./components/MatterHeader";
 import { StepNavigation } from "./components/StepNavigation";
 import { ApplicationStep } from "./steps/ApplicationStep";
@@ -31,65 +32,63 @@ export function MatterWorkbench({ matterId }: { matterId: string }) {
           allowedSteps={controller.allowedSteps}
           onNavigate={controller.navigate}
         />
-        <main className="workbench-main">
-          {controller.error ? <div className="error-banner" role="alert">{controller.error}</div> : null}
+        <MatterFormProvider
+          matter={matter}
+          fields={controller.fields}
+          onFieldChange={controller.updateField}
+          isFieldConfirmed={controller.isFieldConfirmed}
+          onFieldConfirmationChange={controller.setFieldConfirmed}
+        >
+          <main className="workbench-main">
+            {controller.error ? <div className="error-banner" role="alert">{controller.error}</div> : null}
 
-          {activeStep === 1 ? (
-            <PartiesAndBasisStep
-              matter={matter}
-              fields={controller.fields}
-              onFieldChange={controller.updateField}
-              isFieldConfirmed={controller.isFieldConfirmed}
-              onFieldConfirmationChange={controller.setFieldConfirmed}
-              onUpload={controller.handleUpload}
-              busy={controller.anyBusy}
-              onSave={controller.saveStepOne}
-              dismissedScopeSignalIds={controller.dismissedScopeSignalIds}
-              onScopeSignalDismissalChange={controller.setScopeSignalDismissed}
-            />
-          ) : null}
-          {activeStep === 2 ? (
-            <ApplicationStep
-              matter={matter}
-              fields={controller.fields}
-              onFieldChange={controller.updateField}
-              isFieldConfirmed={controller.isFieldConfirmed}
-              onFieldConfirmationChange={controller.setFieldConfirmed}
-              onUpload={controller.handleUpload}
-              outstanding={controller.outstanding}
-              busy={controller.anyBusy}
-              onBack={() => controller.navigate(1)}
-              onSave={controller.saveStepTwo}
-            />
-          ) : null}
-          {activeStep === 3 ? (
-            <ReviewStep
-              validation={controller.validation}
-              generation={controller.generation}
-              job={controller.job}
-              validationPending={controller.validationPending}
-              generationPending={controller.generationPending}
-              generationBusy={controller.generationBusy}
-              retryPending={controller.retryPending}
-              onValidate={controller.runValidation}
-              onGenerate={controller.generate}
-              onBack={() => controller.navigate(2)}
-              onContinue={() => controller.navigate(4)}
-              onRetry={controller.retryFailedJob}
-            />
-          ) : null}
-          {activeStep === 4 ? (
-            <ExportStep
-              generation={controller.generation}
-              finalChecked={controller.finalChecked}
-              checks={controller.exportChecks}
-              confirmPending={controller.confirmPending}
-              onCheckedChange={controller.setExportCheck}
-              onConfirm={controller.confirmAndUnlock}
-              onBack={() => controller.navigate(3)}
-            />
-          ) : null}
-        </main>
+            {activeStep === 1 ? (
+              <PartiesAndBasisStep
+                onUpload={controller.handleUpload}
+                busy={controller.anyBusy}
+                onSave={controller.saveStepOne}
+                dismissedScopeSignalIds={controller.dismissedScopeSignalIds}
+                onScopeSignalDismissalChange={controller.setScopeSignalDismissed}
+              />
+            ) : null}
+            {activeStep === 2 ? (
+              <ApplicationStep
+                onUpload={controller.handleUpload}
+                outstanding={controller.outstanding}
+                busy={controller.anyBusy}
+                onBack={() => controller.navigate(1)}
+                onSave={controller.saveStepTwo}
+              />
+            ) : null}
+            {activeStep === 3 ? (
+              <ReviewStep
+                validation={controller.validation}
+                generation={controller.generation}
+                job={controller.job}
+                validationPending={controller.validationPending}
+                generationPending={controller.generationPending}
+                generationBusy={controller.generationBusy}
+                retryPending={controller.retryPending}
+                onValidate={controller.runValidation}
+                onGenerate={controller.generate}
+                onBack={() => controller.navigate(2)}
+                onContinue={() => controller.navigate(4)}
+                onRetry={controller.retryFailedJob}
+              />
+            ) : null}
+            {activeStep === 4 ? (
+              <ExportStep
+                generation={controller.generation}
+                finalChecked={controller.finalChecked}
+                checks={controller.exportChecks}
+                confirmPending={controller.confirmPending}
+                onCheckedChange={controller.setExportCheck}
+                onConfirm={controller.confirmAndUnlock}
+                onBack={() => controller.navigate(3)}
+              />
+            ) : null}
+          </main>
+        </MatterFormProvider>
       </div>
     </div>
   );

@@ -13,9 +13,9 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json-summary"],
       include: ["src/**/*.{ts,tsx}"],
-      exclude: ["src/app/**", "src/test/**"],
-      // 当前基线覆盖所有前端业务源文件；阈值按真实全量覆盖率设置，后续只允许提高。
-      thresholds: { lines: 12, functions: 12, branches: 12, statements: 12 }
+      exclude: ["src/test/**"],
+      // 当前基线覆盖 App Router 与所有前端业务源文件；阈值按真实全量覆盖率设置，后续只允许提高。
+      thresholds: { lines: 23, functions: 23, branches: 23, statements: 23 }
     }
   }
 });

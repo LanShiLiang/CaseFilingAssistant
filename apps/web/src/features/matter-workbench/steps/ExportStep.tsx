@@ -3,7 +3,14 @@ import { Download } from "lucide-react";
 import type { Generation } from "@case-filing/contracts";
 import { Button } from "@case-filing/ui";
 
-type ExportCheck = "critical" | "draft" | "local";
+import { StepHeading } from "../components/StepHeading";
+import type { ExportCheck, ExportCheckValues } from "../types";
+
+const ATTESTATIONS: ReadonlyArray<{ name: ExportCheck; label: string }> = [
+  { name: "critical", label: "我已逐项核对姓名、证件号、金额、履行情况和请求事项。" },
+  { name: "draft", label: "我理解所有输出仅为草稿，必须由本人或专业人员复核。" },
+  { name: "local", label: "我已自行核对受理法院及其当前地方材料要求。" }
+];
 
 export function ExportStep({
   generation,
@@ -16,24 +23,24 @@ export function ExportStep({
 }: {
   generation: Generation | undefined;
   finalChecked: boolean;
-  checks: { critical: boolean; draft: boolean; local: boolean };
+  checks: ExportCheckValues;
   confirmPending: boolean;
   onCheckedChange: (name: ExportCheck, checked: boolean) => void;
   onConfirm: () => Promise<void>;
   onBack: () => void;
 }) {
-  const attestations: Array<{ name: ExportCheck; label: string }> = [
-    { name: "critical", label: "我已逐项核对姓名、证件号、金额、履行情况和请求事项。" },
-    { name: "draft", label: "我理解所有输出仅为草稿，必须由本人或专业人员复核。" },
-    { name: "local", label: "我已自行核对受理法院及其当前地方材料要求。" }
-  ];
   return (
     <div className="step-page">
-      <div className="page-heading"><div><span>步骤 4</span><h1>导出草稿材料包</h1><p>最终声明不会改变数据版本，只解锁同一生成记录的下载。</p></div><Download size={30} /></div>
+      <StepHeading
+        step={4}
+        title="导出草稿材料包"
+        description="最终声明不会改变数据版本，只解锁同一生成记录的下载。"
+        icon={<Download size={30} />}
+      />
       <section className="panel export-panel">
         <h2>当前生成版本</h2>
         <dl><div><dt>数据版本</dt><dd>{generation?.revision ?? "—"}</dd></div><div><dt>状态</dt><dd>{generation?.status ?? "未生成"}</dd></div><div><dt>SHA-256</dt><dd className="hash-value">{generation?.sha256 ?? "—"}</dd></div></dl>
-        {attestations.map((item) => (
+        {ATTESTATIONS.map((item) => (
           <label className="confirm-row" key={item.name}>
             <input type="checkbox" checked={checks[item.name]} onChange={(event) => onCheckedChange(item.name, event.target.checked)} />
             <span>{item.label}</span>

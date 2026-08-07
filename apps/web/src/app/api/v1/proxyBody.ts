@@ -5,6 +5,15 @@ export class ProxyPayloadTooLargeError extends Error {
   }
 }
 
+export function allowlistedHeaders(source: Headers, names: readonly string[]): Headers {
+  const headers = new Headers();
+  for (const name of names) {
+    const value = source.get(name);
+    if (value) headers.set(name, value);
+  }
+  return headers;
+}
+
 /** 流式转发时逐块计数，避免 Next.js 为上传件额外分配完整 arrayBuffer。 */
 export function limitRequestBody(
   body: ReadableStream<Uint8Array>,

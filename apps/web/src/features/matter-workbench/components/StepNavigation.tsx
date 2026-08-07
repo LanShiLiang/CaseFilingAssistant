@@ -1,4 +1,4 @@
-const STEP_LABELS = ["当事人与依据", "申请内容", "检查与预览", "导出"] as const;
+import { WORKFLOW_STEPS } from "../workflow";
 
 export function StepNavigation({
   activeStep,
@@ -11,13 +11,13 @@ export function StepNavigation({
 }) {
   return (
     <aside className="step-sidebar">
-      <span className="step-caption">步骤 {activeStep} / 4</span>
+      <span className="step-caption">步骤 {activeStep} / {WORKFLOW_STEPS.length}</span>
       <nav aria-label="事项步骤">
-        {STEP_LABELS.map((label, index) => {
+        {WORKFLOW_STEPS.map(({ key, label }, index) => {
           const step = index + 1;
           return (
             <button
-              key={label}
+              key={key}
               className={activeStep === step ? "active" : ""}
               disabled={!allowedSteps[index]}
               onClick={() => onNavigate(step)}

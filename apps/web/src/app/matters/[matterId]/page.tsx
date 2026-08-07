@@ -1,4 +1,4 @@
-import { MatterWorkbench } from "@/components/MatterWorkbench";
+import { MatterWorkbench } from "@/features/matter-workbench/MatterWorkbench";
 
 export default async function MatterPage({
   params

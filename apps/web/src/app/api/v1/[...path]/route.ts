@@ -1,6 +1,10 @@
 import type { NextRequest } from "next/server";
 
-import { limitRequestBody, ProxyPayloadTooLargeError } from "../proxyBody";
+import {
+  allowlistedHeaders,
+  limitRequestBody,
+  ProxyPayloadTooLargeError
+} from "../proxyBody";
 
 export const dynamic = "force-dynamic";
 
@@ -28,11 +32,7 @@ async function proxy(
   const internalApi = process.env.CFA_INTERNAL_API_URL ?? "http://127.0.0.1:8000";
   const target = new URL(`/api/v1/${path.map(encodeURIComponent).join("/")}`, internalApi);
   target.search = request.nextUrl.search;
-  const headers = new Headers();
-  for (const name of REQUEST_HEADERS) {
-    const value = request.headers.get(name);
-    if (value) headers.set(name, value);
-  }
+  const headers = allowlistedHeaders(request.headers, REQUEST_HEADERS);
 
   const declaredLength = Number(request.headers.get("content-length"));
   if (Number.isFinite(declaredLength) && declaredLength > MAX_PROXY_BODY_BYTES) {
@@ -56,11 +56,7 @@ async function proxy(
       init.duplex = "half";
     }
     const response = await fetch(target, init);
-    const responseHeaders = new Headers();
-    for (const name of RESPONSE_HEADERS) {
-      const value = response.headers.get(name);
-      if (value) responseHeaders.set(name, value);
-    }
+    const responseHeaders = allowlistedHeaders(response.headers, RESPONSE_HEADERS);
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,

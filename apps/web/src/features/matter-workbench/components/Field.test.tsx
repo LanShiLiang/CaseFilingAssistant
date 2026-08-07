@@ -54,4 +54,26 @@ describe("Field", () => {
 
     expect(screen.getByRole("checkbox", { name: "我已核对当前值与来源" })).toBeDisabled();
   });
+
+  it("shares the field identity and value binding with multiline controls", () => {
+    const onChange = vi.fn();
+    render(
+      <Field
+        label="请求事项"
+        name="request_text"
+        value="请求被执行人履行义务"
+        onChange={onChange}
+        multiline
+        readOnly
+        confirmed
+        onConfirmationChange={vi.fn()}
+      />
+    );
+
+    const textarea = screen.getByLabelText("请求事项");
+    expect(textarea.tagName).toBe("TEXTAREA");
+    expect(textarea).toHaveAttribute("name", "request_text");
+    expect(textarea).toHaveValue("请求被执行人履行义务");
+    expect(textarea).toHaveAttribute("readonly");
+  });
 });

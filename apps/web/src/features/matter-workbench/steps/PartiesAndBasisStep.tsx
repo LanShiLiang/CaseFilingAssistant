@@ -2,45 +2,44 @@ import { FileSearch, UserRound } from "lucide-react";
 
 import { Button } from "@case-filing/ui";
 
-import { Field } from "../components/Field";
+import { MatterField, useMatterForm } from "../MatterForm";
+import { StepHeading } from "../components/StepHeading";
 import { UploadControl } from "../components/UploadControl";
-import type { StepCommonProps, UploadHandler } from "../types";
+import type { UploadHandler } from "../types";
 
-export function PartiesAndBasisStep({
-  matter,
-  fields,
-  onFieldChange,
-  isFieldConfirmed,
-  onFieldConfirmationChange,
-  onUpload,
-  busy,
-  onSave,
-  dismissedScopeSignalIds,
-  onScopeSignalDismissalChange
-}: StepCommonProps & {
+type PartiesAndBasisStepProps = {
   onUpload: UploadHandler;
   busy: boolean;
   onSave: () => Promise<void>;
   dismissedScopeSignalIds: readonly string[];
   onScopeSignalDismissalChange: (id: string, dismissed: boolean) => void;
-}) {
-  const reviewProps = (name: string) => ({
-    confirmed: isFieldConfirmed(name),
-    onConfirmationChange: onFieldConfirmationChange,
-    source: matter.sources[name]?.[0],
-    status: matter.confirmations[name]
-  });
+};
+
+export function PartiesAndBasisStep(props: PartiesAndBasisStepProps) {
+  const {
+    onUpload,
+    busy,
+    onSave,
+    dismissedScopeSignalIds,
+    onScopeSignalDismissalChange
+  } = props;
+  const { matter } = useMatterForm();
   return (
     <div className="step-page">
-      <div className="page-heading"><div><span>步骤 1</span><h1>当事人与执行依据</h1><p>上传后先得到候选值，保存本步骤代表逐项人工确认。</p></div><FileSearch size={30} /></div>
+      <StepHeading
+        step={1}
+        title="当事人与执行依据"
+        description="上传后先得到候选值，保存本步骤代表逐项人工确认。"
+        icon={<FileSearch size={30} />}
+      />
       <section className="panel">
         <h2>执行依据</h2>
         <UploadControl kind="legal_basis" label="民事调解书或民事判决书" accept="PDF、DOCX、JPG、PNG" matter={matter} onUpload={onUpload} disabled={busy} />
         <div className="field-grid">
-          <Field label="文书类型" name="document_type" value={fields.document_type ?? ""} onChange={onFieldChange} required {...reviewProps("document_type")} />
-          <Field label="案号" name="case_number" value={fields.case_number ?? ""} onChange={onFieldChange} required {...reviewProps("case_number")} />
-          <Field label="文书日期" name="document_date" value={fields.document_date ?? ""} onChange={onFieldChange} type="date" {...reviewProps("document_date")} />
-          <Field label="作出法院" name="rendering_court" value={fields.rendering_court ?? ""} onChange={onFieldChange} required hint="不自动等同于申请法院" {...reviewProps("rendering_court")} />
+          <MatterField label="文书类型" name="document_type" required />
+          <MatterField label="案号" name="case_number" required />
+          <MatterField label="文书日期" name="document_date" type="date" />
+          <MatterField label="作出法院" name="rendering_court" required hint="不自动等同于申请法院" />
         </div>
       </section>
 
@@ -51,9 +50,9 @@ export function PartiesAndBasisStep({
           <UploadControl kind="applicant_id_back" label="身份证国徽面" accept="JPG、PNG" matter={matter} onUpload={onUpload} disabled={busy} />
         </div>
         <div className="field-grid">
-          <Field label="姓名" name="applicant_name" value={fields.applicant_name ?? ""} onChange={onFieldChange} required {...reviewProps("applicant_name")} />
-          <Field label="身份证号" name="applicant_id" value={fields.applicant_id ?? ""} onChange={onFieldChange} required sensitive {...reviewProps("applicant_id")} />
-          <Field label="身份证记载住址（仅供核对）" name="applicant_identity_address" value={fields.applicant_identity_address ?? ""} onChange={onFieldChange} hint="不会自动成为送达地址" sensitive {...reviewProps("applicant_identity_address")} />
+          <MatterField label="姓名" name="applicant_name" required />
+          <MatterField label="身份证号" name="applicant_id" required sensitive />
+          <MatterField label="身份证记载住址（仅供核对）" name="applicant_identity_address" hint="不会自动成为送达地址" sensitive />
         </div>
       </section>
 
@@ -64,8 +63,8 @@ export function PartiesAndBasisStep({
           <UploadControl kind="respondent_id_back" label="身份证国徽面" accept="JPG、PNG" matter={matter} onUpload={onUpload} optional disabled={busy} />
         </div>
         <div className="field-grid">
-          <Field label="姓名" name="respondent_name" value={fields.respondent_name ?? ""} onChange={onFieldChange} required {...reviewProps("respondent_name")} />
-          <Field label="身份证号（如已知）" name="respondent_id" value={fields.respondent_id ?? ""} onChange={onFieldChange} sensitive {...reviewProps("respondent_id")} />
+          <MatterField label="姓名" name="respondent_name" required />
+          <MatterField label="身份证号（如已知）" name="respondent_id" sensitive />
         </div>
       </section>
 

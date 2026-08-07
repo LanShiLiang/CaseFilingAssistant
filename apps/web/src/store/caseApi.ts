@@ -9,6 +9,27 @@ import type {
   DocumentKind
 } from "@case-filing/contracts";
 
+function idempotentJsonRequest(
+  url: string,
+  method: "POST" | "PUT",
+  idempotencyKey: string,
+  body: unknown
+) {
+  return {
+    url,
+    method,
+    headers: { "Idempotency-Key": idempotencyKey },
+    body
+  };
+}
+
+function changedMatterTags(matterId: string, includeList = false) {
+  return [
+    { type: "Matter" as const, id: matterId },
+    ...(includeList ? (["MatterList"] as const) : [])
+  ];
+}
+
 export const caseApi = createApi({
   reducerPath: "caseApi",
   baseQuery: fetchBaseQuery({ baseUrl: "/api/v1" }),
@@ -22,12 +43,8 @@ export const caseApi = createApi({
       Matter,
       { eligibility_confirmed: boolean; eligibility_version: string; idempotencyKey: string }
     >({
-      query: ({ idempotencyKey, ...body }) => ({
-        url: "/matters",
-        method: "POST",
-        headers: { "Idempotency-Key": idempotencyKey },
-        body
-      }),
+      query: ({ idempotencyKey, ...body }) =>
+        idempotentJsonRequest("/matters", "POST", idempotencyKey, body),
       invalidatesTags: ["MatterList"]
     }),
     getMatter: builder.query<Matter, string>({
@@ -57,7 +74,7 @@ export const caseApi = createApi({
         };
       },
       invalidatesTags: (result, _error, { matterId }) =>
-        result ? [{ type: "Matter", id: matterId }, "MatterList"] : []
+        result ? changedMatterTags(matterId, true) : []
     }),
     saveFacts: builder.mutation<
       Matter,
@@ -70,52 +87,36 @@ export const caseApi = createApi({
         idempotencyKey: string;
       }
     >({
-      query: ({ matterId, idempotencyKey, ...body }) => ({
-        url: `/matters/${matterId}/facts`,
-        method: "PUT",
-        headers: { "Idempotency-Key": idempotencyKey },
-        body
-      }),
+      query: ({ matterId, idempotencyKey, ...body }) =>
+        idempotentJsonRequest(`/matters/${matterId}/facts`, "PUT", idempotencyKey, body),
       invalidatesTags: (result, _error, { matterId }) =>
-        result ? [{ type: "Matter", id: matterId }, "MatterList"] : []
+        result ? changedMatterTags(matterId, true) : []
     }),
     validateMatter: builder.mutation<
       ValidationResult,
       { matterId: string; expected_revision: number; idempotencyKey: string }
     >({
-      query: ({ matterId, idempotencyKey, ...body }) => ({
-        url: `/matters/${matterId}/validate`,
-        method: "POST",
-        headers: { "Idempotency-Key": idempotencyKey },
-        body
-      }),
+      query: ({ matterId, idempotencyKey, ...body }) =>
+        idempotentJsonRequest(`/matters/${matterId}/validate`, "POST", idempotencyKey, body),
       invalidatesTags: (result, _error, { matterId }) =>
-        result ? [{ type: "Matter", id: matterId }] : []
+        result ? changedMatterTags(matterId) : []
     }),
     startGeneration: builder.mutation<
       GenerationStartResult,
       { matterId: string; expected_revision: number; idempotencyKey: string }
     >({
-      query: ({ matterId, idempotencyKey, ...body }) => ({
-        url: `/matters/${matterId}/generations`,
-        method: "POST",
-        headers: { "Idempotency-Key": idempotencyKey },
-        body
-      }),
+      query: ({ matterId, idempotencyKey, ...body }) =>
+        idempotentJsonRequest(`/matters/${matterId}/generations`, "POST", idempotencyKey, body),
       invalidatesTags: (result, _error, { matterId }) =>
-        result ? [{ type: "Matter", id: matterId }] : []
+        result ? changedMatterTags(matterId) : []
     }),
     getJob: builder.query<Job, string>({ query: (jobId) => `/jobs/${jobId}` }),
     retryJob: builder.mutation<
       Job,
       { jobId: string; expected_revision: number; idempotencyKey: string }
     >({
-      query: ({ jobId, idempotencyKey, ...body }) => ({
-        url: `/jobs/${jobId}/retry`,
-        method: "POST",
-        headers: { "Idempotency-Key": idempotencyKey },
-        body
-      })
+      query: ({ jobId, idempotencyKey, ...body }) =>
+        idempotentJsonRequest(`/jobs/${jobId}/retry`, "POST", idempotencyKey, body)
     }),
     getGeneration: builder.query<Generation, string>({
       query: (generationId) => `/generations/${generationId}`,
@@ -132,12 +133,13 @@ export const caseApi = createApi({
         idempotencyKey: string;
       }
     >({
-      query: ({ generationId, idempotencyKey, ...body }) => ({
-        url: `/generations/${generationId}/export-attestation`,
-        method: "PUT",
-        headers: { "Idempotency-Key": idempotencyKey },
-        body
-      }),
+      query: ({ generationId, idempotencyKey, ...body }) =>
+        idempotentJsonRequest(
+          `/generations/${generationId}/export-attestation`,
+          "PUT",
+          idempotencyKey,
+          body
+        ),
       invalidatesTags: (_result, _error, { generationId }) => [
         { type: "Generation", id: generationId }
       ]

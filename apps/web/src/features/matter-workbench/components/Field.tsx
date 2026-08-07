@@ -1,10 +1,27 @@
 "use client";
 
-import { useId, useState } from "react";
+import { type ChangeEvent, useId, useState } from "react";
 
 import type { ConfirmationState, SourceReference } from "@case-filing/contracts";
 
 import type { FieldChangeHandler, FieldConfirmationHandler } from "../types";
+
+export interface FieldProps {
+  label: string;
+  name: string;
+  value: string;
+  onChange: FieldChangeHandler;
+  required?: boolean;
+  readOnly?: boolean;
+  type?: string;
+  hint?: string | undefined;
+  multiline?: boolean;
+  sensitive?: boolean;
+  confirmed: boolean;
+  onConfirmationChange: FieldConfirmationHandler;
+  source?: SourceReference | undefined;
+  status?: ConfirmationState | undefined;
+}
 
 export function Field({
   label,
@@ -21,25 +38,18 @@ export function Field({
   onConfirmationChange,
   source,
   status
-}: {
-  label: string;
-  name: string;
-  value: string;
-  onChange: FieldChangeHandler;
-  required?: boolean;
-  readOnly?: boolean;
-  type?: string;
-  hint?: string | undefined;
-  multiline?: boolean;
-  sensitive?: boolean;
-  confirmed: boolean;
-  onConfirmationChange: FieldConfirmationHandler;
-  source?: SourceReference | undefined;
-  status?: ConfirmationState | undefined;
-}) {
+}: FieldProps) {
   const id = useId();
   const [revealed, setRevealed] = useState(false);
   const inputType = sensitive && !revealed ? "password" : type;
+  const controlProps = {
+    id,
+    name,
+    value,
+    readOnly,
+    onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      onChange(name, event.target.value)
+  };
 
   return (
     <div className="form-field">
@@ -47,22 +57,14 @@ export function Field({
       <div className="field-input-row">
         {multiline ? (
           <textarea
-            id={id}
-            name={name}
-            value={value}
-            readOnly={readOnly}
+            {...controlProps}
             rows={5}
-            onChange={(event) => onChange(name, event.target.value)}
           />
         ) : (
           <input
-            id={id}
-            name={name}
-            value={value}
+            {...controlProps}
             type={inputType}
-            readOnly={readOnly}
             onBlur={() => setRevealed(false)}
-            onChange={(event) => onChange(name, event.target.value)}
           />
         )}
         {sensitive ? (

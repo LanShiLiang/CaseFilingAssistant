@@ -23,9 +23,9 @@ import {
   useValidateMatterMutation
 } from "@/store/caseApi";
 
-import type { FormState } from "./types";
-
-const STEP_KEYS = ["parties_and_basis", "application", "review", "export"] as const;
+import type { ExportCheck, ExportCheckState, FormState } from "./types";
+import { useMatterReviewState } from "./useMatterReviewState";
+import { WORKFLOW_STEPS } from "./workflow";
 
 function suggestedStep(allowed: readonly boolean[]): number {
   let result = 1;
@@ -37,18 +37,14 @@ function suggestedStep(allowed: readonly boolean[]): number {
 
 export function useMatterWorkbenchController(matterId: string) {
   const { data: matter, isLoading, error: queryError, refetch } = useGetMatterQuery(matterId);
+  const review = useMatterReviewState(matter);
   const [requestedStep, setRequestedStep] = useState<number | null>(null);
   const [draft, setDraft] = useState<{ revision: number; fields: FormState } | null>(null);
   const [error, setError] = useState("");
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [generationId, setGenerationId] = useState<string | null>(null);
-  const [reviewDraft, setReviewDraft] = useState<{
-    revision: number;
-    confirmedFields: string[];
-    dismissedScopeSignals: string[];
-  } | null>(null);
-  const [exportChecks, setExportChecks] = useState({
+  const [exportChecks, setExportChecks] = useState<ExportCheckState>({
     generationId: "",
     critical: false,
     draft: false,
@@ -108,7 +104,7 @@ export function useMatterWorkbenchController(matterId: string) {
     exportChecks.local
   );
 
-  const gates = STEP_KEYS.map((key) =>
+  const gates = WORKFLOW_STEPS.map(({ key }) =>
     matter?.step_gates.find((gate) => gate.step === key)
   );
   const allowedSteps = gates.map((gate, index) => index === 0 || Boolean(gate?.allowed));
@@ -132,27 +128,7 @@ export function useMatterWorkbenchController(matterId: string) {
   function updateField(name: string, value: string) {
     if (!matter) return;
     setDraft((current) => mergeDraftField(current, matter.revision, matter.facts, name, value));
-    setReviewDraft((current) => {
-      const confirmedFields = current?.revision === matter.revision
-        ? current.confirmedFields
-        : Object.entries(matter.confirmations)
-            .filter(([, status]) => status === "confirmed")
-            .map(([field]) => field);
-      const invalidated = new Set([name]);
-      if (name === "judgment_amount" || name === "paid_amount") {
-        invalidated.add("outstanding_amount");
-      }
-      return {
-        revision: matter.revision,
-        confirmedFields: confirmedFields.filter((field) => !invalidated.has(field)),
-        dismissedScopeSignals:
-          current?.revision === matter.revision
-            ? current.dismissedScopeSignals
-            : matter.scope_signals
-                .filter((signal) => signal.status === "dismissed_as_parse_error")
-                .map((signal) => signal.id)
-      };
-    });
+    review.invalidateField(name);
   }
 
   function idempotencyKey(scope: string, payload: unknown): string {
@@ -164,219 +140,188 @@ export function useMatterWorkbenchController(matterId: string) {
     return created;
   }
 
-  function isFieldConfirmed(name: string): boolean {
-    if (!matter) return false;
-    if (reviewDraft?.revision === matter.revision) {
-      return reviewDraft.confirmedFields.includes(name);
+  async function runMutation<T>(
+    request: () => Promise<T>,
+    onSuccess?: (result: T) => void | Promise<void>
+  ): Promise<void> {
+    setError("");
+    try {
+      const result = await request();
+      await onSuccess?.(result);
+    } catch (reason) {
+      setError(parseApiError(reason));
     }
-    return matter.confirmations[name] === "confirmed";
   }
 
-  function setFieldConfirmed(name: string, confirmed: boolean) {
+  async function saveFieldSet({
+    scope,
+    names,
+    values,
+    includeMissing,
+    dismissedScopeSignalIds,
+    nextStep,
+    resetValidation = false
+  }: {
+    scope: "save-step-one" | "save-step-two";
+    names: readonly string[];
+    values: FormState;
+    includeMissing: boolean;
+    dismissedScopeSignalIds: readonly string[];
+    nextStep: number;
+    resetValidation?: boolean;
+  }) {
     if (!matter) return;
-    setReviewDraft((current) => {
-      const base = current?.revision === matter.revision
-        ? current.confirmedFields
-        : Object.entries(matter.confirmations)
-            .filter(([, status]) => status === "confirmed")
-            .map(([field]) => field);
-      return {
-        revision: matter.revision,
-        confirmedFields: confirmed
-          ? [...new Set([...base, name])]
-          : base.filter((field) => field !== name),
-        dismissedScopeSignals:
-          current?.revision === matter.revision
-            ? current.dismissedScopeSignals
-            : matter.scope_signals
-                .filter((signal) => signal.status === "dismissed_as_parse_error")
-                .map((signal) => signal.id)
-      };
-    });
-  }
-
-  function setScopeSignalDismissed(id: string, dismissed: boolean) {
-    if (!matter) return;
-    setReviewDraft((current) => {
-      const base = current?.revision === matter.revision
-        ? current.dismissedScopeSignals
-        : matter.scope_signals
-            .filter((signal) => signal.status === "dismissed_as_parse_error")
-            .map((signal) => signal.id);
-      return {
-        revision: matter.revision,
-        confirmedFields:
-          current?.revision === matter.revision
-            ? current.confirmedFields
-            : Object.entries(matter.confirmations)
-                .filter(([, status]) => status === "confirmed")
-                .map(([field]) => field),
-        dismissedScopeSignals: dismissed
-          ? [...new Set([...base, id])]
-          : base.filter((signalId) => signalId !== id)
-      };
-    });
+    const payload = Object.fromEntries(
+      names
+        .filter((name) => includeMissing || values[name] !== undefined)
+        .map((name) => [name, values[name] ?? ""])
+    );
+    const confirmedFields = names.filter(
+      (name) => Boolean(payload[name]?.trim()) && review.isFieldConfirmed(name)
+    );
+    await runMutation(
+      () =>
+        saveFacts({
+          matterId,
+          expected_revision: matter.revision,
+          fields: payload,
+          confirm_fields: confirmedFields,
+          dismissed_scope_signal_ids: [...dismissedScopeSignalIds],
+          idempotencyKey: idempotencyKey(scope, {
+            matterId,
+            revision: matter.revision,
+            payload,
+            confirmed: confirmedFields,
+            dismissed: dismissedScopeSignalIds
+          })
+        }).unwrap(),
+      () => {
+        setDraft(null);
+        if (resetValidation) setValidation(null);
+        setRequestedStep(nextStep);
+      }
+    );
   }
 
   async function handleUpload(kind: DocumentKind, file: File) {
     if (!matter) return;
-    setError("");
-    try {
-      const result = await uploadDocument({
-        matterId,
-        kind,
-        expectedRevision: matter.revision,
-        file,
-        idempotencyKey: idempotencyKey("upload", {
+    await runMutation(
+      () =>
+        uploadDocument({
           matterId,
           kind,
-          revision: matter.revision,
-          name: file.name,
-          size: file.size,
-          modified: file.lastModified
-        })
-      }).unwrap();
-      setJobId(result.job_id);
-      setDraft(null);
-      setValidation(null);
-      setReviewDraft(null);
-      await refetch();
-    } catch (reason) {
-      setError(parseApiError(reason));
-    }
+          expectedRevision: matter.revision,
+          file,
+          idempotencyKey: idempotencyKey("upload", {
+            matterId,
+            kind,
+            revision: matter.revision,
+            name: file.name,
+            size: file.size,
+            modified: file.lastModified
+          })
+        }).unwrap(),
+      async (result) => {
+        setJobId(result.job_id);
+        setDraft(null);
+        setValidation(null);
+        review.reset();
+        await refetch();
+      }
+    );
   }
 
   async function saveStepOne() {
     if (!matter) return;
-    setError("");
     const names = [...STEP_ONE_FIELDS, "document_date", "applicant_identity_address", "respondent_id"];
-    const payload = Object.fromEntries(
-      names
-        .filter((name) => fields[name] !== undefined)
-        .map((name) => [name, fields[name] ?? ""])
-    );
-    try {
-      await saveFacts({
-        matterId,
-        expected_revision: matter.revision,
-        fields: payload,
-        confirm_fields: names.filter(
-          (name) => Boolean(payload[name]?.trim()) && isFieldConfirmed(name)
-        ),
-        dismissed_scope_signal_ids:
-          reviewDraft?.revision === matter.revision
-            ? reviewDraft.dismissedScopeSignals
-            : [],
-        idempotencyKey: idempotencyKey("save-step-one", {
-          matterId,
-          revision: matter.revision,
-          payload,
-          confirmed: names.filter(isFieldConfirmed),
-          dismissed: reviewDraft?.dismissedScopeSignals ?? []
-        })
-      }).unwrap();
-      setDraft(null);
-      setRequestedStep(2);
-    } catch (reason) {
-      setError(parseApiError(reason));
-    }
+    await saveFieldSet({
+      scope: "save-step-one",
+      names,
+      values: fields,
+      includeMissing: false,
+      dismissedScopeSignalIds: review.dismissedScopeSignalIds,
+      nextStep: 2
+    });
   }
 
   async function saveStepTwo() {
-    if (!matter) return;
-    setError("");
     const nextFields: FormState = { ...fields, outstanding_amount: outstanding };
     const names = [...STEP_TWO_FIELDS, "phone", "bank_account", "property_clues"];
-    const payload = Object.fromEntries(names.map((name) => [name, nextFields[name] ?? ""]));
-    try {
-      await saveFacts({
-        matterId,
-        expected_revision: matter.revision,
-        fields: payload,
-        confirm_fields: names.filter(
-          (name) => Boolean(payload[name]?.trim()) && isFieldConfirmed(name)
-        ),
-        dismissed_scope_signal_ids: [],
-        idempotencyKey: idempotencyKey("save-step-two", {
-          matterId,
-          revision: matter.revision,
-          payload,
-          confirmed: names.filter(isFieldConfirmed)
-        })
-      }).unwrap();
-      setDraft(null);
-      setValidation(null);
-      setRequestedStep(3);
-    } catch (reason) {
-      setError(parseApiError(reason));
-    }
+    await saveFieldSet({
+      scope: "save-step-two",
+      names,
+      values: nextFields,
+      includeMissing: true,
+      dismissedScopeSignalIds: [],
+      nextStep: 3,
+      resetValidation: true
+    });
   }
 
   async function runValidation() {
     if (!matter) return;
-    setError("");
-    try {
-      const result = await validateMatter({
-        matterId,
-        expected_revision: matter.revision,
-        idempotencyKey: idempotencyKey("validate", {
+    await runMutation(
+      () =>
+        validateMatter({
           matterId,
-          revision: matter.revision
-        })
-      }).unwrap();
-      setValidation(result);
-      await refetch();
-    } catch (reason) {
-      setError(parseApiError(reason));
-    }
+          expected_revision: matter.revision,
+          idempotencyKey: idempotencyKey("validate", {
+            matterId,
+            revision: matter.revision
+          })
+        }).unwrap(),
+      async (result) => {
+        setValidation(result);
+        await refetch();
+      }
+    );
   }
 
   async function generate() {
     if (!matter) return;
-    setError("");
-    try {
-      const result = await startGeneration({
-        matterId,
-        expected_revision: matter.revision,
-        idempotencyKey: idempotencyKey("generate", {
+    await runMutation(
+      () =>
+        startGeneration({
           matterId,
-          revision: matter.revision
-        })
-      }).unwrap();
-      setGenerationId(result.generation.id);
-      setJobId(result.job_id);
-      await refetch();
-    } catch (reason) {
-      setError(parseApiError(reason));
-    }
+          expected_revision: matter.revision,
+          idempotencyKey: idempotencyKey("generate", {
+            matterId,
+            revision: matter.revision
+          })
+        }).unwrap(),
+      async (result) => {
+        setGenerationId(result.generation.id);
+        setJobId(result.job_id);
+        await refetch();
+      }
+    );
   }
 
   async function confirmAndUnlock() {
     if (!matter || !effectiveGenerationId) return;
-    setError("");
-    try {
-      await confirmGeneration({
-        generationId: effectiveGenerationId,
-        expected_revision: matter.revision,
-        critical_fields_reviewed: true,
-        draft_boundary_understood: true,
-        local_requirements_reviewed: true,
-        idempotencyKey: idempotencyKey("export-attestation", {
+    await runMutation(
+      () =>
+        confirmGeneration({
           generationId: effectiveGenerationId,
-          revision: matter.revision
-        })
-      }).unwrap();
-      await refetchGeneration();
-    } catch (reason) {
-      setError(parseApiError(reason));
-    }
+          expected_revision: matter.revision,
+          critical_fields_reviewed: true,
+          draft_boundary_understood: true,
+          local_requirements_reviewed: true,
+          idempotencyKey: idempotencyKey("export-attestation", {
+            generationId: effectiveGenerationId,
+            revision: matter.revision
+          })
+        }).unwrap(),
+      async () => {
+        await refetchGeneration();
+      }
+    );
   }
 
   async function retryFailedJob() {
     if (!matter || !job?.retryable) return;
-    setError("");
-    try {
-      await retryJob({
+    await runMutation(() =>
+      retryJob({
         jobId: job.id,
         expected_revision: matter.revision,
         idempotencyKey: idempotencyKey("retry-job", {
@@ -384,10 +329,8 @@ export function useMatterWorkbenchController(matterId: string) {
           revision: matter.revision,
           attempt: job.attempt
         })
-      }).unwrap();
-    } catch (reason) {
-      setError(parseApiError(reason));
-    }
+      }).unwrap()
+    );
   }
 
   const anyBusy = uploadState.isLoading || saveState.isLoading;
@@ -412,15 +355,12 @@ export function useMatterWorkbenchController(matterId: string) {
     generationPending: generationStartState.isLoading,
     confirmPending: confirmState.isLoading,
     retryPending: retryState.isLoading,
-    isFieldConfirmed,
-    dismissedScopeSignalIds:
-      reviewDraft && reviewDraft.revision === matter?.revision
-        ? reviewDraft.dismissedScopeSignals
-        : [],
+    isFieldConfirmed: review.isFieldConfirmed,
+    dismissedScopeSignalIds: review.dismissedScopeSignalIds,
     navigate,
     updateField,
-    setFieldConfirmed,
-    setScopeSignalDismissed,
+    setFieldConfirmed: review.setFieldConfirmed,
+    setScopeSignalDismissed: review.setScopeSignalDismissed,
     handleUpload,
     saveStepOne,
     saveStepTwo,
@@ -429,7 +369,7 @@ export function useMatterWorkbenchController(matterId: string) {
     confirmAndUnlock,
     retryFailedJob,
     exportChecks,
-    setExportCheck: (name: "critical" | "draft" | "local", checked: boolean) =>
+    setExportCheck: (name: ExportCheck, checked: boolean) =>
       setExportChecks((current) => ({
         ...(current.generationId === effectiveGenerationId
           ? current

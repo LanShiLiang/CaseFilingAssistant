@@ -3,6 +3,8 @@ import { ShieldAlert } from "lucide-react";
 import type { Generation, Job, ValidationResult } from "@case-filing/contracts";
 import { Button, StatusBadge } from "@case-filing/ui";
 
+import { StepHeading } from "../components/StepHeading";
+
 export function ReviewStep({
   validation,
   generation,
@@ -32,7 +34,12 @@ export function ReviewStep({
 }) {
   return (
     <div className="step-page">
-      <div className="page-heading"><div><span>步骤 3</span><h1>检查与预览</h1><p>所有阻断项必须修复；警告和提示会保留供人工复核。</p></div><ShieldAlert size={30} /></div>
+      <StepHeading
+        step={3}
+        title="检查与预览"
+        description="所有阻断项必须修复；警告和提示会保留供人工复核。"
+        icon={<ShieldAlert size={30} />}
+      />
       <section className="panel">
         <div className="panel-title-row"><h2>规则检查</h2><Button variant="primary" disabled={validationPending} onClick={() => void onValidate()}>{validationPending ? "检查中…" : "运行当前版本检查"}</Button></div>
         {validation ? <div className="issue-list">{validation.issues.map((issue, index) => <div key={`${issue.code}-${index}`} className={`issue issue--${issue.severity}`}><StatusBadge tone={issue.severity === "blocking" ? "danger" : issue.severity === "warning" ? "warning" : "info"}>{issue.severity}</StatusBadge><span>{issue.message}</span></div>)}</div> : <p className="muted">尚未运行检查。</p>}
