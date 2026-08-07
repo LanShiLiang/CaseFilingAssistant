@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import re
 import shutil
 import subprocess
-from dataclasses import dataclass
+import tempfile
+from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
@@ -26,9 +28,12 @@ class ExtractionResult:
     facts: dict[str, str]
     sources: dict[str, list[dict[str, Any]]]
     warnings: list[str]
+    scope_signals: list[dict[str, Any]] = field(default_factory=list)
 
 
-CASE_NUMBER_RE = re.compile(r"[（(]\s*\d{4}\s*[）)][^\s，。；;]{1,30}?号")
+CASE_NUMBER_RE = re.compile(
+    r"[（(]\s*\d{4}\s*[）)]\s*(?:[^\s，。；;]\s*){1,30}?号"
+)
 COURT_RE = re.compile(r"[\u4e00-\u9fff]{2,40}人民法院")
 DATE_RE = re.compile(r"(20\d{2})年(\d{1,2})月(\d{1,2})日")
 AMOUNT_RE = re.compile(r"人民币\s*([0-9][0-9,]*(?:\.\d{1,2})?)\s*元")
@@ -36,6 +41,89 @@ AMOUNT_RE = re.compile(r"人民币\s*([0-9][0-9,]*(?:\.\d{1,2})?)\s*元")
 
 def image_ocr_available() -> bool:
     return shutil.which("tesseract") is not None
+
+
+def document_conversion_available() -> bool:
+    return shutil.which("soffice") is not None or shutil.which("libreoffice") is not None
+
+
+def _office_command() -> str:
+    command = shutil.which("soffice") or shutil.which("libreoffice")
+    if command is None:
+        raise ValueError("document_conversion_unavailable")
+    return command
+
+
+def _ocr_image(path: Path) -> tuple[str, str | None]:
+    completed = subprocess.run(
+        ["tesseract", str(path), "stdout", "-l", "chi_sim+eng"],
+        capture_output=True,
+        text=True,
+        timeout=90,
+        check=False,
+    )
+    if completed.returncode != 0:
+        return "", "image_ocr_failed_manual_input_allowed"
+    return completed.stdout.strip(), None
+
+
+def _ocr_pdf(path: Path, page_count: int) -> tuple[list[ExtractedPage], list[str]]:
+    warnings: list[str] = []
+    if not image_ocr_available() or shutil.which("pdftoppm") is None:
+        return [], ["scanned_pdf_requires_manual_input"]
+    with tempfile.TemporaryDirectory(prefix="cfa-pdf-ocr-") as directory:
+        prefix = Path(directory) / "page"
+        completed = subprocess.run(
+            ["pdftoppm", "-png", "-r", "200", str(path), str(prefix)],
+            capture_output=True,
+            text=True,
+            timeout=max(120, page_count * 20),
+            check=False,
+        )
+        if completed.returncode != 0:
+            return [], ["scanned_pdf_requires_manual_input"]
+        pages: list[ExtractedPage] = []
+        for index, image_path in enumerate(sorted(Path(directory).glob("page-*.png")), start=1):
+            text, warning = _ocr_image(image_path)
+            if warning:
+                warnings.append(warning)
+            pages.append(ExtractedPage(page=index, text=text, method="ocr"))
+        return pages, sorted(set(warnings))
+
+
+def _docx_pages(path: Path, max_pdf_pages: int) -> tuple[list[ExtractedPage], list[str]]:
+    if not document_conversion_available():
+        document = WordDocument(str(path))
+        text = "\n".join(
+            paragraph.text for paragraph in document.paragraphs if paragraph.text.strip()
+        )
+        return [ExtractedPage(page=1, text=text, method="text")], [
+            "docx_pagination_unavailable"
+        ]
+    with tempfile.TemporaryDirectory(prefix="cfa-docx-read-") as directory:
+        output = Path(directory)
+        profile = output / "lo-profile"
+        profile.mkdir()
+        completed = subprocess.run(
+            [
+                _office_command(),
+                "--headless",
+                f"-env:UserInstallation={profile.as_uri()}",
+                "--convert-to",
+                "pdf",
+                "--outdir",
+                str(output),
+                str(path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+        pdf_path = output / f"{path.stem}.pdf"
+        if completed.returncode != 0 or not pdf_path.is_file():
+            raise ValueError("docx_conversion_failed")
+        return extract_pages(pdf_path, "application/pdf", max_pdf_pages)
 
 
 def extract_pages(
@@ -53,17 +141,16 @@ def extract_pages(
             for index, page in enumerate(reader.pages)
         ]
         if not any(page.text for page in pages):
-            warnings.append("scanned_pdf_requires_manual_input")
+            ocr_pages, ocr_warnings = _ocr_pdf(path, len(reader.pages))
+            if ocr_pages:
+                pages = ocr_pages
+            warnings.extend(ocr_warnings)
         return pages, warnings
     if (
         mime_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         or suffix == ".docx"
     ):
-        document = WordDocument(str(path))
-        text = "\n".join(
-            paragraph.text for paragraph in document.paragraphs if paragraph.text.strip()
-        )
-        return [ExtractedPage(page=1, text=text, method="text")], warnings
+        return _docx_pages(path, max_pdf_pages)
     if mime_type.startswith("image/") or suffix in {".jpg", ".jpeg", ".png"}:
         with Image.open(path) as image:
             width, height = image.size
@@ -73,17 +160,11 @@ def extract_pages(
         if not image_ocr_available():
             warnings.append("image_ocr_unavailable_manual_input_allowed")
             return [ExtractedPage(page=1, text="", method="ocr")], warnings
-        completed = subprocess.run(
-            ["tesseract", str(path), "stdout", "-l", "chi_sim+eng"],
-            capture_output=True,
-            text=True,
-            timeout=90,
-            check=False,
-        )
-        if completed.returncode != 0:
-            warnings.append("image_ocr_failed_manual_input_allowed")
+        text, warning = _ocr_image(path)
+        if warning:
+            warnings.append(warning)
             return [ExtractedPage(page=1, text="", method="ocr")], warnings
-        return [ExtractedPage(page=1, text=completed.stdout.strip(), method="ocr")], warnings
+        return [ExtractedPage(page=1, text=text, method="ocr")], warnings
     raise ValueError("unsupported_document_type")
 
 
@@ -119,6 +200,70 @@ def _source(document_id: str, page: ExtractedPage, value: str) -> dict[str, Any]
     }
 
 
+def _scope_signal(
+    document_id: str, code: str, page: ExtractedPage, snippet: str
+) -> dict[str, Any]:
+    identity = hashlib.sha256(
+        f"{document_id}|{code}|{page.page}|{snippet}".encode()
+    ).hexdigest()[:24]
+    return {
+        "id": identity,
+        "code": code,
+        "document_id": document_id,
+        "page": page.page,
+        "snippet": " ".join(snippet.split())[:160],
+        "status": "open",
+    }
+
+
+def _scope_signals(document_id: str, pages: list[ExtractedPage]) -> list[dict[str, Any]]:
+    signals: list[dict[str, Any]] = []
+    role_patterns = (
+        (
+            "unsupported_multiple_applicants",
+            re.compile(r"(?:申请执行人|申请人|原告)\s*[：:]\s*([\u4e00-\u9fff·]{2,30})"),
+        ),
+        (
+            "unsupported_multiple_respondents",
+            re.compile(r"(?:被执行人|被申请人|被告)\s*[：:]\s*([\u4e00-\u9fff·]{2,30})"),
+        ),
+    )
+    full_text = "\n".join(page.text for page in pages)
+    for code, pattern in role_patterns:
+        matches = []
+        for page in pages:
+            matches.extend((match.group(1), page) for match in pattern.finditer(page.text))
+        unique_names = {name for name, _ in matches}
+        if len(unique_names) > 1:
+            page = matches[0][1]
+            signals.append(_scope_signal(document_id, code, page, "、".join(sorted(unique_names))))
+
+    keyword_groups = (
+        (
+            "unsupported_representative",
+            re.compile(r"委托诉讼代理人|委托代理人|代理律师"),
+        ),
+        (
+            "unsupported_organization_party",
+            re.compile(r"法定代表人|统一社会信用代码|(?:有限责任|股份有限)?公司"),
+        ),
+        (
+            "unsupported_multiple_obligations",
+            re.compile(r"(?:第一项|第二项|第一笔|第二笔|多项债务)"),
+        ),
+        (
+            "unsupported_complex_obligation",
+            re.compile(r"分期履行|条件成就|债权转让|继承|权利承受|抵扣顺序"),
+        ),
+    )
+    for code, pattern in keyword_groups:
+        match = pattern.search(full_text)
+        if match:
+            page = next(page for page in pages if pattern.search(page.text))
+            signals.append(_scope_signal(document_id, code, page, match.group(0)))
+    return signals
+
+
 def parse_legal_basis(
     path: Path, mime_type: str, document_id: str, max_pdf_pages: int
 ) -> ExtractionResult:
@@ -134,11 +279,13 @@ def parse_legal_basis(
         ("applicant_name", _named_value("申请执行人", pages) or _named_value("申请人", pages)),
         ("respondent_name", _named_value("被执行人", pages) or _named_value("被申请人", pages)),
     ]
-    for field, candidate in mappings:
+    for field_name, candidate in mappings:
         if candidate:
             value, page = candidate
-            facts[field] = value
-            sources[field] = [_source(document_id, page, value)]
+            if field_name == "case_number":
+                value = "".join(value.split())
+            facts[field_name] = value
+            sources[field_name] = [_source(document_id, page, value)]
 
     date_candidate = _first_match(DATE_RE, pages)
     if date_candidate:
@@ -175,4 +322,5 @@ def parse_legal_basis(
         facts=facts,
         sources=sources,
         warnings=warnings,
+        scope_signals=_scope_signals(document_id, pages),
     )

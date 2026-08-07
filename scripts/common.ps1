@@ -8,17 +8,36 @@ function Get-RepositoryRoot {
 
 function Get-PnpmInvocation {
     if ($env:CFA_PNPM -and (Test-Path -LiteralPath $env:CFA_PNPM)) {
-        return [pscustomobject]@{ File = $env:CFA_PNPM; Prefix = @() }
+        return [pscustomobject]@{
+            File = $env:CFA_PNPM
+            Prefix = @(
+                "--config.manage-package-manager-versions=false",
+                "--config.verify-deps-before-run=false"
+            )
+        }
     }
     $pnpm = Get-Command pnpm.cmd -ErrorAction SilentlyContinue
     if (-not $pnpm) { $pnpm = Get-Command pnpm -ErrorAction SilentlyContinue }
     if ($pnpm) {
-        return [pscustomobject]@{ File = $pnpm.Source; Prefix = @() }
+        return [pscustomobject]@{
+            File = $pnpm.Source
+            Prefix = @(
+                "--config.manage-package-manager-versions=false",
+                "--config.verify-deps-before-run=false"
+            )
+        }
     }
     $corepack = Get-Command corepack.cmd -ErrorAction SilentlyContinue
     if (-not $corepack) { $corepack = Get-Command corepack -ErrorAction SilentlyContinue }
     if ($corepack) {
-        return [pscustomobject]@{ File = $corepack.Source; Prefix = @("pnpm") }
+        return [pscustomobject]@{
+            File = $corepack.Source
+            Prefix = @(
+                "pnpm",
+                "--config.manage-package-manager-versions=false",
+                "--config.verify-deps-before-run=false"
+            )
+        }
     }
     throw "pnpm/corepack was not found. Install Node.js 22 LTS first."
 }

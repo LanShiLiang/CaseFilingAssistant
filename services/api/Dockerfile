@@ -8,7 +8,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        fonts-noto-cjk poppler-utils tesseract-ocr tesseract-ocr-chi-sim \
+        fonts-noto-cjk libreoffice-writer poppler-utils tesseract-ocr tesseract-ocr-chi-sim \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --no-cache-dir uv==0.12.1 \
     && useradd --create-home --uid 10001 app

@@ -38,23 +38,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/generations/{generation_id}/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Confirm Generation */
-        post: operations["confirm_generation_api_v1_generations__generation_id__confirm_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/generations/{generation_id}/download": {
         parameters: {
             query?: never;
@@ -65,6 +48,23 @@ export interface paths {
         /** Download Generation */
         get: operations["download_generation_api_v1_generations__generation_id__download_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/generations/{generation_id}/export-attestation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Confirm Generation */
+        put: operations["confirm_generation_api_v1_generations__generation_id__export_attestation_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -100,6 +100,23 @@ export interface paths {
         get: operations["get_job_api_v1_jobs__job_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{job_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Job */
+        post: operations["retry_job_api_v1_jobs__job_id__retry_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -247,6 +264,34 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AmountComputationV1 */
+        AmountComputationV1: {
+            /**
+             * Confirmation Status
+             * @enum {string}
+             */
+            confirmation_status: "pending" | "confirmed" | "invalidated";
+            /**
+             * Formula Version
+             * @default outstanding_amount_v1
+             * @constant
+             */
+            formula_version: "outstanding_amount_v1";
+            /** Input Revision */
+            input_revision: number;
+            /** Judgment Amount */
+            judgment_amount: string;
+            /** Paid Amount */
+            paid_amount: string;
+            /** Result */
+            result: string;
+            /**
+             * Schema Version
+             * @default amount_computation_v1
+             * @constant
+             */
+            schema_version: "amount_computation_v1";
+        };
         /** Body_upload_document_route_api_v1_matters__matter_id__documents_post */
         Body_upload_document_route_api_v1_matters__matter_id__documents_post: {
             /** Expected Revision */
@@ -260,15 +305,9 @@ export interface components {
         CapabilityResponse: {
             /** Database */
             database: boolean;
-            /**
-             * Docx
-             * @default true
-             */
+            /** Docx */
             docx: boolean;
-            /**
-             * Generation
-             * @default true
-             */
+            /** Generation */
             generation: boolean;
             /** Image Ocr */
             image_ocr: boolean;
@@ -291,8 +330,35 @@ export interface components {
             /**
              * Eligibility Version
              * @default self_single_v1.0.0
+             * @constant
              */
-            eligibility_version: string;
+            eligibility_version: "self_single_v1.0.0";
+        };
+        /** ExportAttestationRequest */
+        ExportAttestationRequest: {
+            /**
+             * Attestation Version
+             * @default export_attestation_v1
+             * @constant
+             */
+            attestation_version: "export_attestation_v1";
+            /**
+             * Critical Fields Reviewed
+             * @constant
+             */
+            critical_fields_reviewed: true;
+            /**
+             * Draft Boundary Understood
+             * @constant
+             */
+            draft_boundary_understood: true;
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Local Requirements Reviewed
+             * @constant
+             */
+            local_requirements_reviewed: true;
         };
         /** GenerationResponse */
         GenerationResponse: {
@@ -303,8 +369,12 @@ export interface components {
             created_at: string;
             /** Download Url */
             download_url: string | null;
+            /** Export Attestation Version */
+            export_attestation_version: string | null;
             /** Final Confirmed */
             final_confirmed: boolean;
+            /** Final Confirmed At */
+            final_confirmed_at: string | null;
             /** Id */
             id: string;
             /** Matter Id */
@@ -353,6 +423,8 @@ export interface components {
             result: {
                 [key: string]: unknown;
             };
+            /** Retryable */
+            retryable: boolean;
             /**
              * Status
              * @enum {string}
@@ -387,6 +459,7 @@ export interface components {
         };
         /** MatterResponse */
         MatterResponse: {
+            amount_computation: components["schemas"]["AmountComputationV1"] | null;
             /** Confirmations */
             confirmations: {
                 [key: string]: "pending" | "confirmed" | "invalidated";
@@ -404,7 +477,7 @@ export interface components {
              * Dossier Schema Version
              * @constant
              */
-            dossier_schema_version: "dossier_v1";
+            dossier_schema_version: "dossier_v2";
             /** Eligibility Confirmed */
             eligibility_confirmed: boolean;
             /** Eligibility Version */
@@ -421,6 +494,8 @@ export interface components {
             latest_generation_id: string | null;
             /** Revision */
             revision: number;
+            /** Scope Signals */
+            scope_signals: components["schemas"]["ScopeSignalV1"][];
             /** Sources */
             sources: {
                 [key: string]: components["schemas"]["SourceReferenceResponse"][];
@@ -454,12 +529,36 @@ export interface components {
         SaveFactsRequest: {
             /** Confirm Fields */
             confirm_fields: string[];
+            /** Dismissed Scope Signal Ids */
+            dismissed_scope_signal_ids?: string[];
             /** Expected Revision */
             expected_revision: number;
             /** Fields */
             fields: {
                 [key: string]: string;
             };
+        };
+        /** ScopeSignalV1 */
+        ScopeSignalV1: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "unsupported_multiple_applicants" | "unsupported_multiple_respondents" | "unsupported_representative" | "unsupported_organization_party" | "unsupported_multiple_obligations" | "unsupported_complex_obligation";
+            /** Document Id */
+            document_id: string;
+            /** Id */
+            id: string;
+            /** Page */
+            page?: number | null;
+            /** Snippet */
+            snippet: string;
+            /**
+             * Status
+             * @default open
+             * @enum {string}
+             */
+            status: "open" | "dismissed_as_parse_error";
         };
         /** SourceReferenceResponse */
         SourceReferenceResponse: {
@@ -474,6 +573,8 @@ export interface components {
             extraction_method: "text" | "ocr" | "user" | "deterministic";
             /** Page */
             page: number | null;
+            /** Parse Revision */
+            parse_revision?: number | null;
             /** Snippet */
             snippet: string;
         };
@@ -600,41 +701,6 @@ export interface operations {
             };
         };
     };
-    confirm_generation_api_v1_generations__generation_id__confirm_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                generation_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RevisionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenerationResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     download_generation_api_v1_generations__generation_id__download_get: {
         parameters: {
             query?: never;
@@ -653,6 +719,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_generation_api_v1_generations__generation_id__export_attestation_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                generation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportAttestationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -707,6 +810,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_job_api_v1_jobs__job_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevisionRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -817,7 +957,9 @@ export interface operations {
     upload_document_route_api_v1_matters__matter_id__documents_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
             path: {
                 matter_id: string;
             };
@@ -852,7 +994,9 @@ export interface operations {
     save_facts_route_api_v1_matters__matter_id__facts_put: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
             path: {
                 matter_id: string;
             };
@@ -887,7 +1031,9 @@ export interface operations {
     start_generation_api_v1_matters__matter_id__generations_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
             path: {
                 matter_id: string;
             };
@@ -922,7 +1068,9 @@ export interface operations {
     validate_route_api_v1_matters__matter_id__validate_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
             path: {
                 matter_id: string;
             };

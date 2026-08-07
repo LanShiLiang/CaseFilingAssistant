@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 from app.extraction import ExtractionResult
 from app.jobs import JobProcessor
-from app.models import Document, Job, Matter
+from app.models import Document, Job, Matter, utc_now
 
 from .conftest import ApiHarness
 from .helpers import legal_basis_docx
@@ -115,3 +117,45 @@ def test_stolen_lease_cannot_publish_or_change_document_state(api_harness: ApiHa
         assert job.status == "running"
         assert job.lease_token == "replacement-worker-token"
         assert document.parse_status == "pending"
+
+
+def test_expired_job_stops_at_attempt_cap_and_can_only_retry_explicitly(
+    api_harness: ApiHarness,
+) -> None:
+    matter_payload = _create_matter(api_harness)
+    with api_harness.app.state.database.session_factory.begin() as session:
+        job = Job(
+            kind="parse_document",
+            dedupe_key="expired-at-cap",
+            matter_id=matter_payload["id"],
+            input_revision=matter_payload["revision"],
+            payload={"document_id": "missing-test-document"},
+            status="running",
+            attempt_count=3,
+            max_attempts=3,
+            lease_token="expired-token",
+            leased_until=utc_now() - timedelta(seconds=10),
+        )
+        session.add(job)
+        session.flush()
+        job_id = job.id
+
+    processor = JobProcessor(
+        api_harness.app.state.database,
+        api_harness.app.state.store,
+        api_harness.settings,
+    )
+    assert processor.claim() is None
+    terminal = api_harness.client.get(f"/api/v1/jobs/{job_id}").json()
+    assert terminal["status"] == "failed_terminal"
+    assert terminal["attempt"] == terminal["max_attempts"]
+    assert terminal["retryable"] is True
+
+    retried = api_harness.client.post(
+        f"/api/v1/jobs/{job_id}/retry",
+        headers={"Idempotency-Key": "explicit-job-retry"},
+        json={"expected_revision": matter_payload["revision"]},
+    )
+    assert retried.status_code == 200, retried.text
+    assert retried.json()["status"] == "retry_scheduled"
+    assert retried.json()["attempt"] == 0

@@ -3,10 +3,14 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import shutil
+import subprocess
+import tempfile
 import zipfile
 from dataclasses import dataclass
-from datetime import date
+from datetime import datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import Any, Literal
 
 from docx import Document as WordDocument
@@ -16,14 +20,8 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt
 from pydantic import BaseModel, ConfigDict
-from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import mm
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.cidfonts import UnicodeCIDFont
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+from pypdf import PdfReader, PdfWriter
+from pypdf.generic import ArrayObject, ByteStringObject
 
 FIELD_LABELS = {
     "document_type": "文书类型",
@@ -52,6 +50,7 @@ class GeneratedPackage:
     package_bytes: bytes
     preview_pdf: bytes
     package_sha256: str
+    preview_sha256: str
     manifest: dict[str, Any]
 
 
@@ -66,9 +65,11 @@ class GenerationContext(BaseModel):
     workflow_profile: str
     facts: dict[str, str]
     sources: dict[str, list[dict[str, Any]]]
+    amount_computation: dict[str, Any]
     validation_run_id: str
     template_version: str
     rule_set_version: str
+    generated_at: datetime
 
     @classmethod
     def from_payload(cls, payload: dict[str, Any]) -> GenerationContext:
@@ -84,10 +85,14 @@ def _set_run_font(run, *, size: float = 12, bold: bool = False, name: str = "宋
     run._element.get_or_add_rPr().rFonts.set(qn("w:hAnsi"), "Times New Roman")
 
 
-def _configure_document(document: WordDocument) -> None:
+def _configure_document(document: WordDocument, generated_at: datetime) -> None:
     """命名覆盖 cn_legal_application：A4、2.54cm 页边距、宋体正文、无装饰标题。"""
 
     section = document.sections[0]
+    fixed_time = generated_at.replace(tzinfo=None, microsecond=0)
+    document.core_properties.created = fixed_time
+    document.core_properties.modified = fixed_time
+    document.core_properties.revision = 1
     section.page_width = Cm(21)
     section.page_height = Cm(29.7)
     section.top_margin = Cm(2.54)
@@ -137,10 +142,28 @@ def _add_body_paragraph(document: WordDocument, text: str, *, indent: bool = Tru
     _set_run_font(run)
 
 
+def _normalized_zip(content: bytes) -> bytes:
+    source = zipfile.ZipFile(io.BytesIO(content))
+    output = io.BytesIO()
+    with source, zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name in sorted(source.namelist()):
+            info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o600 << 16
+            archive.writestr(info, source.read(name), compresslevel=9)
+    return output.getvalue()
+
+
+def _document_bytes(document: WordDocument) -> bytes:
+    stream = io.BytesIO()
+    document.save(stream)
+    return _normalized_zip(stream.getvalue())
+
+
 def build_application_docx(context: GenerationContext) -> bytes:
     facts = context.facts
     document = WordDocument()
-    _configure_document(document)
+    _configure_document(document, context.generated_at)
     _add_title(document, "申请执行书（草稿）")
     _add_label_paragraph(document, "申请执行人：", facts["applicant_name"])
     _add_label_paragraph(document, "身份证号：", facts["applicant_id"])
@@ -193,9 +216,7 @@ def build_application_docx(context: GenerationContext) -> bytes:
     run = notice.add_run("本文件由本地工具生成，仅供人工审阅，不代表已向法院提交。")
     _set_run_font(run, size=9, bold=True)
 
-    stream = io.BytesIO()
-    document.save(stream)
-    return stream.getvalue()
+    return _document_bytes(document)
 
 
 def _set_cell_text(cell, text: str, *, bold: bool = False, size: float = 10.5) -> None:
@@ -219,7 +240,7 @@ def _keep_row_together(row, *, repeat_header: bool = False) -> None:
 
 def build_material_list_docx(context: GenerationContext) -> bytes:
     document = WordDocument()
-    _configure_document(document)
+    _configure_document(document, context.generated_at)
     _add_title(document, "申请强制执行材料清单（草稿）")
     _add_label_paragraph(document, "事项案号：", context.facts["case_number"])
 
@@ -254,14 +275,12 @@ def build_material_list_docx(context: GenerationContext) -> bytes:
         document,
         "提示：本清单仅依据全国基础规则和当前已确认信息生成。各地法院的份数、格式、附件和窗口要求可能不同，提交前必须自行核对。",
     )
-    stream = io.BytesIO()
-    document.save(stream)
-    return stream.getvalue()
+    return _document_bytes(document)
 
 
 def build_source_audit_docx(context: GenerationContext) -> bytes:
     document = WordDocument()
-    _configure_document(document)
+    _configure_document(document, context.generated_at)
     _add_title(document, "字段来源核对表（内部审阅）")
     rows: list[tuple[str, str, str, str]] = []
     for field, value in context.facts.items():
@@ -306,97 +325,61 @@ def build_source_audit_docx(context: GenerationContext) -> bytes:
         for cell, text in zip(cells, (field, value, source, status), strict=True):
             _set_cell_text(cell, text, size=9.5)
         _keep_row_together(row)
-    stream = io.BytesIO()
-    document.save(stream)
-    return stream.getvalue()
+    return _document_bytes(document)
 
 
-def build_preview_pdf(context: GenerationContext) -> bytes:
-    pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
-    stream = io.BytesIO()
+def _office_command() -> str:
+    command = shutil.which("soffice") or shutil.which("libreoffice")
+    if command is None:
+        raise RuntimeError("document_conversion_unavailable")
+    return command
 
-    def footer(canvas, doc):
-        canvas.saveState()
-        canvas.setFont("STSong-Light", 9)
-        canvas.setFillColor(colors.HexColor("#667477"))
-        canvas.drawCentredString(A4[0] / 2, 13 * mm, f"草稿 · 未提交法院 · 第 {doc.page} 页")
-        canvas.restoreState()
 
-    document = SimpleDocTemplate(
-        stream,
-        pagesize=A4,
-        leftMargin=28 * mm,
-        rightMargin=28 * mm,
-        topMargin=24 * mm,
-        bottomMargin=24 * mm,
-        title="申请执行书（草稿）",
-        author="Case Filing Assistant",
-    )
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        "ChineseTitle",
-        parent=styles["Title"],
-        fontName="STSong-Light",
-        fontSize=22,
-        leading=30,
-        alignment=TA_CENTER,
-        textColor=colors.black,
-        spaceAfter=18,
-    )
-    label_style = ParagraphStyle(
-        "ChineseLabel",
-        parent=styles["BodyText"],
-        fontName="STSong-Light",
-        fontSize=12,
-        leading=21,
-        alignment=TA_LEFT,
-        spaceAfter=4,
-    )
-    body_style = ParagraphStyle(
-        "ChineseBody",
-        parent=label_style,
-        alignment=TA_JUSTIFY,
-        firstLineIndent=24,
-        spaceAfter=9,
-    )
-    heading_style = ParagraphStyle(
-        "ChineseHeading",
-        parent=label_style,
-        fontSize=14,
-        leading=22,
-        spaceBefore=10,
-        spaceAfter=6,
-    )
-    facts = context.facts
-    story = [Paragraph("申请执行书（草稿）", title_style)]
-    for label, value in (
-        ("申请执行人", facts["applicant_name"]),
-        ("身份证号", facts["applicant_id"]),
-        ("送达地址", facts["service_address"]),
-        ("被执行人", facts["respondent_name"]),
-    ):
-        story.append(Paragraph(f"<b>{label}：</b>{value}", label_style))
-    story.extend([Spacer(1, 8), Paragraph("申请事项", heading_style)])
-    for line in filter(None, facts["request_text"].splitlines()):
-        story.append(Paragraph(line, body_style))
-    story.append(Paragraph("事实与理由", heading_style))
-    reason = (
-        f"{facts['rendering_court']}作出的{facts['document_type']}（案号：{facts['case_number']}）"
-        f"确定了金钱给付义务。经人工确认，尚未履行金额为人民币"
-        f"{Decimal(facts['outstanding_amount']):,.2f}元，现申请依法强制执行。"
-    )
-    story.extend(
-        [
-            Paragraph(reason, body_style),
-            Paragraph("此致", label_style),
-            Paragraph(facts["filing_court"], label_style),
-            Spacer(1, 20),
-            Paragraph("申请执行人（签名）：____________", label_style),
-            Paragraph("日期：____年__月__日", label_style),
-        ]
-    )
-    document.build(story, onFirstPage=footer, onLaterPages=footer)
-    return stream.getvalue()
+def build_preview_pdf(application_docx: bytes, context: GenerationContext) -> bytes:
+    """预览必须来自 ZIP 中同一份申请书 DOCX，不维护第二套正文 renderer。"""
+
+    with tempfile.TemporaryDirectory(prefix="cfa-docx-preview-") as directory:
+        root = Path(directory)
+        profile = root / "lo-profile"
+        profile.mkdir()
+        source = root / "application.docx"
+        source.write_bytes(application_docx)
+        completed = subprocess.run(
+            [
+                _office_command(),
+                "--headless",
+                f"-env:UserInstallation={profile.as_uri()}",
+                "--convert-to",
+                "pdf",
+                "--outdir",
+                str(root),
+                str(source),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+        rendered = root / "application.pdf"
+        if completed.returncode != 0 or not rendered.is_file():
+            raise RuntimeError("document_conversion_failed")
+        reader = PdfReader(rendered)
+        writer = PdfWriter()
+        writer.append_pages_from_reader(reader)
+        fixed = context.generated_at.replace(microsecond=0).isoformat()
+        writer.add_metadata(
+            {
+                "/Title": "申请执行书（草稿）",
+                "/Author": "Case Filing Assistant",
+                "/CreationDate": fixed,
+                "/ModDate": fixed,
+            }
+        )
+        identity = hashlib.sha256(application_docx).digest()[:16]
+        writer._ID = ArrayObject([ByteStringObject(identity), ByteStringObject(identity)])
+        output = io.BytesIO()
+        writer.write(output)
+        return output.getvalue()
 
 
 def generate_package(context: GenerationContext) -> GeneratedPackage:
@@ -404,8 +387,7 @@ def generate_package(context: GenerationContext) -> GeneratedPackage:
     application = build_application_docx(context)
     checklist = build_material_list_docx(context)
     source_audit = build_source_audit_docx(context)
-    preview = build_preview_pdf(context)
-    generated_at = date.today().isoformat()
+    preview = build_preview_pdf(application, context)
     manifest = {
         "matter_id": context.matter_id,
         "revision": context.revision,
@@ -414,7 +396,7 @@ def generate_package(context: GenerationContext) -> GeneratedPackage:
         "validation_run_id": context.validation_run_id,
         "template_version": context.template_version,
         "rule_set_version": context.rule_set_version,
-        "generated_on": generated_at,
+        "generated_at": context.generated_at.replace(microsecond=0).isoformat(),
         "draft_only": True,
         "files": {},
     }
@@ -431,13 +413,26 @@ def generate_package(context: GenerationContext) -> GeneratedPackage:
     }
     package_stream = io.BytesIO()
     with zipfile.ZipFile(package_stream, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        for name, content in files.items():
-            archive.writestr(name, content)
-        archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
+        for name, content in sorted(files.items()):
+            info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o600 << 16
+            archive.writestr(info, content, compresslevel=9)
+        manifest_info = zipfile.ZipInfo("manifest.json", date_time=(1980, 1, 1, 0, 0, 0))
+        manifest_info.compress_type = zipfile.ZIP_DEFLATED
+        manifest_info.external_attr = 0o600 << 16
+        archive.writestr(
+            manifest_info,
+            json.dumps(
+                manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            ).encode("utf-8"),
+            compresslevel=9,
+        )
     package_bytes = package_stream.getvalue()
     return GeneratedPackage(
         package_bytes=package_bytes,
         preview_pdf=preview,
         package_sha256=hashlib.sha256(package_bytes).hexdigest(),
+        preview_sha256=hashlib.sha256(preview).hexdigest(),
         manifest=manifest,
     )

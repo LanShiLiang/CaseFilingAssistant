@@ -22,15 +22,36 @@ def complete_matter(**overrides):
     }
     values = {
         "eligibility_confirmed": True,
-        "dossier_schema_version": "dossier_v1",
+        "revision": 4,
+        "dossier_schema_version": "dossier_v2",
         "documents": [
-            SimpleNamespace(kind="legal_basis", active=True),
-            SimpleNamespace(kind="applicant_id_front", active=True),
-            SimpleNamespace(kind="applicant_id_back", active=True),
+            SimpleNamespace(id="basis", kind="legal_basis", active=True, parse_revision=1),
+            SimpleNamespace(id="front", kind="applicant_id_front", active=True, parse_revision=2),
+            SimpleNamespace(id="back", kind="applicant_id_back", active=True, parse_revision=3),
         ],
         "facts": facts,
         "confirmations": {key: "confirmed" for key in facts},
-        "sources": {},
+        "sources": {
+            key: [
+                {
+                    "document_id": "user",
+                    "page": None,
+                    "snippet": "用户核对后确认",
+                    "extraction_method": "user",
+                    "confidence": None,
+                }
+            ]
+            for key in facts
+        },
+        "scope_signals": [],
+        "amount_computation": {
+            "schema_version": "amount_computation_v1",
+            "input_revision": 4,
+            "judgment_amount": "10000.00",
+            "paid_amount": "2500.00",
+            "result": "7500.00",
+            "confirmation_status": "confirmed",
+        },
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -50,3 +71,22 @@ def test_amount_mismatch_is_blocking() -> None:
     issues = validate_matter(matter)
 
     assert any(issue.code == "amount_computation_mismatch" for issue in issues)
+
+
+def test_open_scope_signal_is_blocking() -> None:
+    matter = complete_matter(
+        scope_signals=[
+            {
+                "id": "signal-1",
+                "code": "unsupported_organization_party",
+                "document_id": "basis",
+                "page": 1,
+                "snippet": "法定代表人",
+                "status": "open",
+            }
+        ]
+    )
+
+    issues = validate_matter(matter)
+
+    assert any(issue.code == "unsupported_organization_party" for issue in issues)

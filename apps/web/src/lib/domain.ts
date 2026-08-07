@@ -54,7 +54,12 @@ export function parseApiError(error: unknown): string {
     error.data !== null
   ) {
     const body = error.data as Partial<ApiErrorBody>;
-    if (body.error?.message) return body.error.message;
+    if (body.error?.message) {
+      const suffix = [body.error.code, body.error.request_id]
+        .filter(Boolean)
+        .join(" · ");
+      return suffix ? `${body.error.message}（${suffix}）` : body.error.message;
+    }
   }
   return "操作失败，请稍后重试。";
 }

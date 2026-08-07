@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { DocumentKind, ValidationResult } from "@case-filing/contracts";
 
@@ -16,6 +16,7 @@ import {
   useGetGenerationQuery,
   useGetJobQuery,
   useGetMatterQuery,
+  useRetryJobMutation,
   useSaveFactsMutation,
   useStartGenerationMutation,
   useUploadDocumentMutation,
@@ -42,13 +43,25 @@ export function useMatterWorkbenchController(matterId: string) {
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [generationId, setGenerationId] = useState<string | null>(null);
-  const [checkedGenerationId, setCheckedGenerationId] = useState<string | null>(null);
+  const [reviewDraft, setReviewDraft] = useState<{
+    revision: number;
+    confirmedFields: string[];
+    dismissedScopeSignals: string[];
+  } | null>(null);
+  const [exportChecks, setExportChecks] = useState({
+    generationId: "",
+    critical: false,
+    draft: false,
+    local: false
+  });
+  const idempotencyKeys = useRef(new Map<string, string>());
 
   const [uploadDocument, uploadState] = useUploadDocumentMutation();
   const [saveFacts, saveState] = useSaveFactsMutation();
   const [validateMatter, validateState] = useValidateMatterMutation();
   const [startGeneration, generationStartState] = useStartGenerationMutation();
   const [confirmGeneration, confirmState] = useConfirmGenerationMutation();
+  const [retryJob, retryState] = useRetryJobMutation();
   const { data: job } = useGetJobQuery(jobId ?? "", {
     skip: !jobId,
     pollingInterval: jobId ? 800 : 0,
@@ -88,7 +101,11 @@ export function useMatterWorkbenchController(matterId: string) {
   ]);
 
   const finalChecked = Boolean(
-    effectiveGenerationId && checkedGenerationId === effectiveGenerationId
+    effectiveGenerationId &&
+    exportChecks.generationId === effectiveGenerationId &&
+    exportChecks.critical &&
+    exportChecks.draft &&
+    exportChecks.local
   );
 
   const gates = STEP_KEYS.map((key) =>
@@ -115,6 +132,90 @@ export function useMatterWorkbenchController(matterId: string) {
   function updateField(name: string, value: string) {
     if (!matter) return;
     setDraft((current) => mergeDraftField(current, matter.revision, matter.facts, name, value));
+    setReviewDraft((current) => {
+      const confirmedFields = current?.revision === matter.revision
+        ? current.confirmedFields
+        : Object.entries(matter.confirmations)
+            .filter(([, status]) => status === "confirmed")
+            .map(([field]) => field);
+      const invalidated = new Set([name]);
+      if (name === "judgment_amount" || name === "paid_amount") {
+        invalidated.add("outstanding_amount");
+      }
+      return {
+        revision: matter.revision,
+        confirmedFields: confirmedFields.filter((field) => !invalidated.has(field)),
+        dismissedScopeSignals:
+          current?.revision === matter.revision
+            ? current.dismissedScopeSignals
+            : matter.scope_signals
+                .filter((signal) => signal.status === "dismissed_as_parse_error")
+                .map((signal) => signal.id)
+      };
+    });
+  }
+
+  function idempotencyKey(scope: string, payload: unknown): string {
+    const signature = `${scope}:${JSON.stringify(payload)}`;
+    const existing = idempotencyKeys.current.get(signature);
+    if (existing) return existing;
+    const created = crypto.randomUUID();
+    idempotencyKeys.current.set(signature, created);
+    return created;
+  }
+
+  function isFieldConfirmed(name: string): boolean {
+    if (!matter) return false;
+    if (reviewDraft?.revision === matter.revision) {
+      return reviewDraft.confirmedFields.includes(name);
+    }
+    return matter.confirmations[name] === "confirmed";
+  }
+
+  function setFieldConfirmed(name: string, confirmed: boolean) {
+    if (!matter) return;
+    setReviewDraft((current) => {
+      const base = current?.revision === matter.revision
+        ? current.confirmedFields
+        : Object.entries(matter.confirmations)
+            .filter(([, status]) => status === "confirmed")
+            .map(([field]) => field);
+      return {
+        revision: matter.revision,
+        confirmedFields: confirmed
+          ? [...new Set([...base, name])]
+          : base.filter((field) => field !== name),
+        dismissedScopeSignals:
+          current?.revision === matter.revision
+            ? current.dismissedScopeSignals
+            : matter.scope_signals
+                .filter((signal) => signal.status === "dismissed_as_parse_error")
+                .map((signal) => signal.id)
+      };
+    });
+  }
+
+  function setScopeSignalDismissed(id: string, dismissed: boolean) {
+    if (!matter) return;
+    setReviewDraft((current) => {
+      const base = current?.revision === matter.revision
+        ? current.dismissedScopeSignals
+        : matter.scope_signals
+            .filter((signal) => signal.status === "dismissed_as_parse_error")
+            .map((signal) => signal.id);
+      return {
+        revision: matter.revision,
+        confirmedFields:
+          current?.revision === matter.revision
+            ? current.confirmedFields
+            : Object.entries(matter.confirmations)
+                .filter(([, status]) => status === "confirmed")
+                .map(([field]) => field),
+        dismissedScopeSignals: dismissed
+          ? [...new Set([...base, id])]
+          : base.filter((signalId) => signalId !== id)
+      };
+    });
   }
 
   async function handleUpload(kind: DocumentKind, file: File) {
@@ -125,11 +226,20 @@ export function useMatterWorkbenchController(matterId: string) {
         matterId,
         kind,
         expectedRevision: matter.revision,
-        file
+        file,
+        idempotencyKey: idempotencyKey("upload", {
+          matterId,
+          kind,
+          revision: matter.revision,
+          name: file.name,
+          size: file.size,
+          modified: file.lastModified
+        })
       }).unwrap();
       setJobId(result.job_id);
       setDraft(null);
       setValidation(null);
+      setReviewDraft(null);
       await refetch();
     } catch (reason) {
       setError(parseApiError(reason));
@@ -150,7 +260,20 @@ export function useMatterWorkbenchController(matterId: string) {
         matterId,
         expected_revision: matter.revision,
         fields: payload,
-        confirm_fields: names.filter((name) => Boolean(payload[name]?.trim()))
+        confirm_fields: names.filter(
+          (name) => Boolean(payload[name]?.trim()) && isFieldConfirmed(name)
+        ),
+        dismissed_scope_signal_ids:
+          reviewDraft?.revision === matter.revision
+            ? reviewDraft.dismissedScopeSignals
+            : [],
+        idempotencyKey: idempotencyKey("save-step-one", {
+          matterId,
+          revision: matter.revision,
+          payload,
+          confirmed: names.filter(isFieldConfirmed),
+          dismissed: reviewDraft?.dismissedScopeSignals ?? []
+        })
       }).unwrap();
       setDraft(null);
       setRequestedStep(2);
@@ -170,7 +293,16 @@ export function useMatterWorkbenchController(matterId: string) {
         matterId,
         expected_revision: matter.revision,
         fields: payload,
-        confirm_fields: names.filter((name) => Boolean(payload[name]?.trim()))
+        confirm_fields: names.filter(
+          (name) => Boolean(payload[name]?.trim()) && isFieldConfirmed(name)
+        ),
+        dismissed_scope_signal_ids: [],
+        idempotencyKey: idempotencyKey("save-step-two", {
+          matterId,
+          revision: matter.revision,
+          payload,
+          confirmed: names.filter(isFieldConfirmed)
+        })
       }).unwrap();
       setDraft(null);
       setValidation(null);
@@ -186,7 +318,11 @@ export function useMatterWorkbenchController(matterId: string) {
     try {
       const result = await validateMatter({
         matterId,
-        expected_revision: matter.revision
+        expected_revision: matter.revision,
+        idempotencyKey: idempotencyKey("validate", {
+          matterId,
+          revision: matter.revision
+        })
       }).unwrap();
       setValidation(result);
       await refetch();
@@ -201,7 +337,11 @@ export function useMatterWorkbenchController(matterId: string) {
     try {
       const result = await startGeneration({
         matterId,
-        expected_revision: matter.revision
+        expected_revision: matter.revision,
+        idempotencyKey: idempotencyKey("generate", {
+          matterId,
+          revision: matter.revision
+        })
       }).unwrap();
       setGenerationId(result.generation.id);
       setJobId(result.job_id);
@@ -217,9 +357,34 @@ export function useMatterWorkbenchController(matterId: string) {
     try {
       await confirmGeneration({
         generationId: effectiveGenerationId,
-        expected_revision: matter.revision
+        expected_revision: matter.revision,
+        critical_fields_reviewed: true,
+        draft_boundary_understood: true,
+        local_requirements_reviewed: true,
+        idempotencyKey: idempotencyKey("export-attestation", {
+          generationId: effectiveGenerationId,
+          revision: matter.revision
+        })
       }).unwrap();
       await refetchGeneration();
+    } catch (reason) {
+      setError(parseApiError(reason));
+    }
+  }
+
+  async function retryFailedJob() {
+    if (!matter || !job?.retryable) return;
+    setError("");
+    try {
+      await retryJob({
+        jobId: job.id,
+        expected_revision: matter.revision,
+        idempotencyKey: idempotencyKey("retry-job", {
+          jobId: job.id,
+          revision: matter.revision,
+          attempt: job.attempt
+        })
+      }).unwrap();
     } catch (reason) {
       setError(parseApiError(reason));
     }
@@ -246,15 +411,30 @@ export function useMatterWorkbenchController(matterId: string) {
     validationPending: validateState.isLoading,
     generationPending: generationStartState.isLoading,
     confirmPending: confirmState.isLoading,
+    retryPending: retryState.isLoading,
+    isFieldConfirmed,
+    dismissedScopeSignalIds:
+      reviewDraft && reviewDraft.revision === matter?.revision
+        ? reviewDraft.dismissedScopeSignals
+        : [],
     navigate,
     updateField,
+    setFieldConfirmed,
+    setScopeSignalDismissed,
     handleUpload,
     saveStepOne,
     saveStepTwo,
     runValidation,
     generate,
     confirmAndUnlock,
-    setFinalChecked: (checked: boolean) =>
-      setCheckedGenerationId(checked ? effectiveGenerationId : null)
+    retryFailedJob,
+    exportChecks,
+    setExportCheck: (name: "critical" | "draft" | "local", checked: boolean) =>
+      setExportChecks((current) => ({
+        ...(current.generationId === effectiveGenerationId
+          ? current
+          : { generationId: effectiveGenerationId ?? "", critical: false, draft: false, local: false }),
+        [name]: checked
+      }))
   };
 }

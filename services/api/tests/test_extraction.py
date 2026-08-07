@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import io
 from pathlib import Path
+
+from docx import Document as WordDocument
 
 from app.extraction import extract_pages, parse_legal_basis
 
@@ -35,3 +38,22 @@ def test_image_without_ocr_degrades_to_manual_input(tmp_path: Path, monkeypatch)
     assert pages[0].method == "ocr"
     assert pages[0].text == ""
     assert warnings == ["image_ocr_unavailable_manual_input_allowed"]
+
+
+def test_complex_party_signal_is_extracted_and_blocks_silent_scope_drift(
+    tmp_path: Path,
+) -> None:
+    document = WordDocument()
+    document.add_paragraph("北京市示例区人民法院")
+    document.add_paragraph("民事判决书")
+    document.add_paragraph("（2026）示例民初1号")
+    document.add_paragraph("申请执行人：测试公司，法定代表人：测试甲")
+    stream = io.BytesIO()
+    document.save(stream)
+    path = tmp_path / "organization.docx"
+    path.write_bytes(stream.getvalue())
+
+    result = parse_legal_basis(path, DOCX_MIME, "organization-document", 20)
+
+    codes = {signal["code"] for signal in result.scope_signals}
+    assert "unsupported_organization_party" in codes

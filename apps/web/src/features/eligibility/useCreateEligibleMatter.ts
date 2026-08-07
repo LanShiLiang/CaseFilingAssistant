@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { parseApiError } from "@/lib/domain";
 import { useCreateMatterMutation } from "@/store/caseApi";
@@ -16,6 +16,7 @@ export function useCreateEligibleMatter() {
   const router = useRouter();
   const [createMatter, { isLoading }] = useCreateMatterMutation();
   const [error, setError] = useState("");
+  const idempotencyKey = useRef<string | null>(null);
 
   async function create() {
     setError("");
@@ -23,8 +24,9 @@ export function useCreateEligibleMatter() {
       const matter = await createMatter({
         eligibility_confirmed: true,
         eligibility_version: ELIGIBILITY_VERSION,
-        idempotencyKey: crypto.randomUUID()
+        idempotencyKey: (idempotencyKey.current ??= crypto.randomUUID())
       }).unwrap();
+      idempotencyKey.current = null;
       router.push(`/matters/${matter.id}`);
     } catch (reason) {
       setError(parseApiError(reason));

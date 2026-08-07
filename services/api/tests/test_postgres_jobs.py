@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -70,8 +72,17 @@ def test_postgres_workers_claim_distinct_jobs(tmp_path, monkeypatch) -> None:
 
         first_worker = JobProcessor(database, LocalBlobStore(settings.storage_root), settings)
         second_worker = JobProcessor(database, LocalBlobStore(settings.storage_root), settings)
-        first_claim = first_worker.claim()
-        second_claim = second_worker.claim()
+        barrier = threading.Barrier(2)
+
+        def claim(processor: JobProcessor):
+            barrier.wait(timeout=5)
+            return processor.claim()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            first_future = executor.submit(claim, first_worker)
+            second_future = executor.submit(claim, second_worker)
+            first_claim = first_future.result(timeout=10)
+            second_claim = second_future.result(timeout=10)
 
         assert first_claim is not None and second_claim is not None
         assert first_claim.id != second_claim.id

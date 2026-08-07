@@ -91,5 +91,5 @@ def test_v010_database_upgrades_without_rewriting_initial_revision(
     }
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "0002_architecture_hardening"
+            "0003_reliable_review_gates"
         )

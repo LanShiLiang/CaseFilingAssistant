@@ -6,14 +6,14 @@
 
 ## 已实现能力
 
-- 首页用 1—4 项适用条件和一个总确认框阻断不适用事项。
-- 上传 PDF、DOCX、JPG、PNG；执行依据负责提取案号、法院、日期、当事人和金额等候选字段，识别失败时允许人工补充。
+- 首页用 1—4 项适用条件和一个总确认框建立适用范围基线；材料解析还会检测多当事人、代理人、组织主体和复杂义务信号，未排除的信号由服务端阻断生成。
+- 流式上传 PDF、DOCX、JPG、PNG，并校验大小、签名和 DOCX 压缩包边界；执行依据负责提取案号、法院、日期、当事人和金额等候选字段，扫描 PDF/图片在本地 OCR 可用时进入 OCR，失败时允许人工补充。
 - 四步闭环：当事人与执行依据 → 申请内容 → 检查与预览 → 导出。
-- 字段保存来源位置、置信度和人工确认状态；版本化 `DossierV1` 统一约束 JSON 数据，数据变化会提升 revision，并使旧校验、旧预览和旧导出失效。
-- 后台任务采用 lease token CAS、heartbeat、有限重试和旧 revision 发布拦截；API、worker、迁移共用同一后端代码。
+- 字段保存材料 ID、解析 revision、来源位置、置信度和人工确认状态；版本化 `DossierV2` 统一约束 JSON 数据。候选字段必须逐项勾选确认，材料替换或数据变化会提升 revision，并使旧来源、旧校验、旧预览和旧导出失效。
+- 后台任务采用 lease token CAS、heartbeat、有限重试、退避和旧 revision 发布拦截；到达尝试上限后停止自动重跑，只允许用户对可重试错误显式重试。API、worker、迁移共用同一后端代码。
 - 每次生成关联持久化 ValidationRun、不可变 GenerationInput hash 和版本化 manifest，renderer 不读取可变 ORM 事项。
-- 生成申请执行书草稿、材料清单、字段来源核对表、PDF 预览和 ZIP 材料包。
-- 桌面 Web 与移动 Web 使用同一业务流程；步骤门禁由服务端统一返回，API 通过带大小限制的 Next.js 流式同源代理访问。
+- 生成申请执行书草稿、材料清单、字段来源核对表、PDF 预览和 ZIP 材料包；PDF 预览由材料包中的同一份申请书 DOCX 转换，发布和下载前校验 hash、大小与 manifest。
+- 桌面 Web 与移动 Web 使用同一业务流程；步骤门禁由服务端统一返回，API 通过带大小限制、取消传播和超时的 Next.js 流式同源代理访问。写请求使用稳定幂等键，敏感字段默认遮罩且不启用 Redux DevTools。
 
 所有输出均为草稿。系统不会登录法院，也不会代为立案、提交、缴费、送达、联系法院或实施其他外部法律行为。
 
@@ -44,7 +44,7 @@ pnpm dev
 
 访问 `http://127.0.0.1:3000`。本机模式默认使用 `.local/case_filing.db` 和 `.local/storage`，日志写入 `.artifacts/dev`；这些路径均被 Git 忽略。按 `Ctrl+C` 会停止本次启动的三个子进程，不会删除本地数据。
 
-若本机没有可用的图像 OCR 引擎，能力接口会显示 `image_ocr=false`；PDF/DOCX 文本仍可解析，身份证图片可上传并由用户手工确认字段。容器镜像已经包含 Tesseract 中文 OCR 运行依赖。
+若本机没有可用的图像 OCR 引擎，能力接口会显示 `image_ocr=false`；文本型 PDF 仍可解析，身份证图片可上传并由用户手工确认字段。DOCX 分页提取和生成预览需要本机 LibreOffice；缺失时能力接口会显示 `docx=false`、`generation=false` 并由服务端阻断相应写操作。容器镜像包含 LibreOffice Writer、Poppler 与 Tesseract 中文 OCR 运行依赖。
 
 ## Compose 启动
 
@@ -72,7 +72,7 @@ pnpm verify
 pnpm test:e2e
 ```
 
-验收使用运行时生成的完全虚构材料，依次完成事项创建、材料上传、字段确认、申请内容校验、后台生成、最终确认和 ZIP 下载。测试 fixture、浏览器 trace、截图、覆盖率、上传件和生成文书只保存在被忽略的本地目录。
+验收使用运行时生成的完全虚构材料，依次完成事项创建、材料上传、逐字段来源确认、申请内容校验、后台生成、PDF 预览、三项导出声明和 ZIP 下载。测试 fixture、浏览器 trace、截图、覆盖率、上传件和生成文书只保存在被忽略的本地目录。
 
 GitHub Actions 在 PR、主分支和 `codex/**` 分支执行相同的前后端门禁，并用隔离 PostgreSQL 验证 Alembic 与双 worker `SKIP LOCKED` 领取语义；独立容器任务构建 production images、导出最终文件清单并检查禁入路径与镜像大小预算。本机没有 Docker 时，`pnpm artifact:audit` 只代表源码/build-context 边界通过，不能替代 CI 的最终镜像审计。
 

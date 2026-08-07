@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from app.dossier import DossierV1
+from app.dossier import DossierV2
 
 
 def test_dossier_is_the_only_json_boundary() -> None:
@@ -26,17 +26,17 @@ def test_dossier_is_the_only_json_boundary() -> None:
         },
     )
 
-    dossier = DossierV1.from_matter(matter)
+    dossier = DossierV2.from_matter(matter)
     assert dossier.sources["case_number"][0].page == 1
 
     dossier.apply_to(matter)
-    assert matter.dossier_schema_version == "dossier_v1"
+    assert matter.dossier_schema_version == "dossier_v2"
     assert matter.sources["case_number"][0]["extraction_method"] == "text"
 
 
 def test_dossier_rejects_unknown_confirmation_state() -> None:
     with pytest.raises(ValidationError):
-        DossierV1(
+        DossierV2(
             facts={"case_number": "TEST"},
             confirmations={"case_number": "silently_accepted"},
         )

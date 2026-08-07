@@ -7,6 +7,8 @@ import zipfile
 from docx import Document as WordDocument
 from pypdf import PdfReader
 
+from app.models import Generation
+
 from .conftest import ApiHarness
 from .helpers import legal_basis_docx, synthetic_identity_png
 
@@ -110,6 +112,7 @@ def test_full_draft_generation_flow(api_harness: ApiHarness) -> None:
     step_two = {
         "judgment_amount": "10000.00",
         "paid_amount": "2500.00",
+        "outstanding_amount": "7500.00",
         "request_text": "请求强制执行人民币7500.00元。",
         "filing_court": "北京市朝阳区人民法院",
         "service_address": "测试地址（非真实）",
@@ -147,7 +150,8 @@ def test_full_draft_generation_flow(api_harness: ApiHarness) -> None:
 
     generation = api_harness.client.get(f"/api/v1/generations/{generation_id}")
     assert generation.status_code == 200
-    assert generation.json()["status"] == "completed"
+    job = api_harness.client.get(f"/api/v1/jobs/{started.json()['job_id']}").json()
+    assert generation.json()["status"] == "completed", job.get("error_code")
     assert generation.json()["download_url"] is None
 
     preview = api_harness.client.get(f"/api/v1/generations/{generation_id}/preview")
@@ -158,9 +162,15 @@ def test_full_draft_generation_flow(api_harness: ApiHarness) -> None:
     assert locked.status_code == 409
     assert locked.json()["error"]["code"] == "download_locked"
 
-    confirmed = api_harness.client.post(
-        f"/api/v1/generations/{generation_id}/confirm",
-        json={"expected_revision": matter["revision"]},
+    confirmed = api_harness.client.put(
+        f"/api/v1/generations/{generation_id}/export-attestation",
+        json={
+            "expected_revision": matter["revision"],
+            "attestation_version": "export_attestation_v1",
+            "critical_fields_reviewed": True,
+            "draft_boundary_understood": True,
+            "local_requirements_reviewed": True,
+        },
     )
     assert confirmed.status_code == 200
     assert confirmed.json()["download_url"]
@@ -181,6 +191,15 @@ def test_full_draft_generation_flow(api_harness: ApiHarness) -> None:
         assert manifest["revision"] == matter["revision"]
         application = WordDocument(io.BytesIO(archive.read("申请执行书_草稿.docx")))
         assert "申请执行书（草稿）" in "\n".join(p.text for p in application.paragraphs)
+
+    with api_harness.app.state.database.session_factory() as session:
+        stored_generation = session.get(Generation, generation_id)
+        assert stored_generation is not None and stored_generation.package_key
+        package_path = api_harness.app.state.store.path_for(stored_generation.package_key)
+    package_path.write_bytes(package_path.read_bytes() + b"tampered")
+    tampered = api_harness.client.get(f"/api/v1/generations/{generation_id}/download")
+    assert tampered.status_code == 409
+    assert tampered.json()["error"]["code"] == "artifact_integrity_failed"
 
 
 def test_revision_conflict_and_upload_signature_are_structured(api_harness: ApiHarness) -> None:
@@ -206,3 +225,56 @@ def test_revision_conflict_and_upload_signature_are_structured(api_harness: ApiH
     assert conflict.json()["error"]["code"] == "revision_conflict"
     assert conflict.headers["cache-control"] == "no-store, private"
     assert conflict.headers["x-request-id"]
+
+
+def test_write_idempotency_and_replaced_source_invalidation(api_harness: ApiHarness) -> None:
+    matter = create_matter(api_harness)
+    first_upload = upload(
+        api_harness,
+        matter["id"],
+        matter["revision"],
+        "legal_basis",
+        "first.docx",
+        DOCX_MIME,
+        legal_basis_docx(),
+    )
+    api_harness.run_next_job()
+    parsed = api_harness.client.get(f"/api/v1/matters/{matter['id']}").json()
+    payload = {
+        "expected_revision": parsed["revision"],
+        "fields": {"case_number": parsed["facts"]["case_number"]},
+        "confirm_fields": ["case_number"],
+        "dismissed_scope_signal_ids": [],
+    }
+    headers = {"Idempotency-Key": "save-case-number-once"}
+    first_save = api_harness.client.put(
+        f"/api/v1/matters/{matter['id']}/facts", headers=headers, json=payload
+    )
+    assert first_save.status_code == 200
+    replay = api_harness.client.put(
+        f"/api/v1/matters/{matter['id']}/facts", headers=headers, json=payload
+    )
+    assert replay.status_code == 200
+    assert replay.json()["revision"] == first_save.json()["revision"]
+
+    second_upload = upload(
+        api_harness,
+        matter["id"],
+        first_save.json()["revision"],
+        "legal_basis",
+        "replacement.docx",
+        DOCX_MIME,
+        legal_basis_docx(),
+    )
+    assert second_upload["revision"] == first_upload["revision"] + 2
+    replaced = api_harness.client.get(f"/api/v1/matters/{matter['id']}").json()
+    assert replaced["confirmations"]["case_number"] == "invalidated"
+
+
+def test_unknown_eligibility_version_is_rejected(api_harness: ApiHarness) -> None:
+    response = api_harness.client.post(
+        "/api/v1/matters",
+        json={"eligibility_confirmed": True, "eligibility_version": "future-version"},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "request_validation_failed"

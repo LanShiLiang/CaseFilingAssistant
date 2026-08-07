@@ -39,9 +39,13 @@ export function MatterWorkbench({ matterId }: { matterId: string }) {
               matter={matter}
               fields={controller.fields}
               onFieldChange={controller.updateField}
+              isFieldConfirmed={controller.isFieldConfirmed}
+              onFieldConfirmationChange={controller.setFieldConfirmed}
               onUpload={controller.handleUpload}
               busy={controller.anyBusy}
               onSave={controller.saveStepOne}
+              dismissedScopeSignalIds={controller.dismissedScopeSignalIds}
+              onScopeSignalDismissalChange={controller.setScopeSignalDismissed}
             />
           ) : null}
           {activeStep === 2 ? (
@@ -49,6 +53,8 @@ export function MatterWorkbench({ matterId }: { matterId: string }) {
               matter={matter}
               fields={controller.fields}
               onFieldChange={controller.updateField}
+              isFieldConfirmed={controller.isFieldConfirmed}
+              onFieldConfirmationChange={controller.setFieldConfirmed}
               onUpload={controller.handleUpload}
               outstanding={controller.outstanding}
               busy={controller.anyBusy}
@@ -64,18 +70,21 @@ export function MatterWorkbench({ matterId }: { matterId: string }) {
               validationPending={controller.validationPending}
               generationPending={controller.generationPending}
               generationBusy={controller.generationBusy}
+              retryPending={controller.retryPending}
               onValidate={controller.runValidation}
               onGenerate={controller.generate}
               onBack={() => controller.navigate(2)}
               onContinue={() => controller.navigate(4)}
+              onRetry={controller.retryFailedJob}
             />
           ) : null}
           {activeStep === 4 ? (
             <ExportStep
               generation={controller.generation}
               finalChecked={controller.finalChecked}
+              checks={controller.exportChecks}
               confirmPending={controller.confirmPending}
-              onCheckedChange={controller.setFinalChecked}
+              onCheckedChange={controller.setExportCheck}
               onConfirm={controller.confirmAndUnlock}
               onBack={() => controller.navigate(3)}
             />

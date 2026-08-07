@@ -40,11 +40,16 @@ async function proxy(
   }
 
   try {
+    const upstreamSignal = AbortSignal.any([
+      request.signal,
+      AbortSignal.timeout(120_000)
+    ]);
     const init: RequestInit & { duplex?: "half" } = {
       method: request.method,
       headers,
       cache: "no-store",
-      redirect: "manual"
+      redirect: "manual",
+      signal: upstreamSignal
     };
     if (request.method !== "GET" && request.method !== "HEAD" && request.body) {
       init.body = limitRequestBody(request.body, MAX_PROXY_BODY_BYTES);

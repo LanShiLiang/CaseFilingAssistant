@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.database import Database
-from app.dossier import DossierV1
+from app.dossier import DossierV2
 from app.extraction import ExtractionResult, extract_pages, parse_legal_basis
 from app.generation import GenerationContext, generate_package
 from app.models import Document, Generation, Job, Matter, ValidationRun, utc_now
@@ -44,6 +44,34 @@ class JobProcessor:
     def claim(self) -> ClaimedJob | None:
         now = utc_now()
         with self.database.session_factory.begin() as session:
+            exhausted = session.scalars(
+                select(Job)
+                .where(
+                    Job.status == "running",
+                    Job.leased_until < now,
+                    Job.attempt_count >= Job.max_attempts,
+                )
+                .with_for_update(skip_locked=True)
+            ).all()
+            for job in exhausted:
+                job.status = "failed_terminal"
+                job.error_code = "worker_attempts_exhausted"
+                job.progress = None
+                job.lease_owner = None
+                job.lease_token = None
+                job.leased_until = None
+                job.heartbeat_at = None
+                if job.kind == "parse_document":
+                    document = session.get(Document, str(job.payload.get("document_id", "")))
+                    if document:
+                        document.parse_status = "failed"
+                elif job.kind == "generate_package":
+                    generation = session.get(
+                        Generation, str(job.payload.get("generation_id", ""))
+                    )
+                    if generation:
+                        generation.status = "failed"
+                        generation.error_code = job.error_code
             query = (
                 select(Job)
                 .where(
@@ -52,7 +80,11 @@ class JobProcessor:
                             Job.status.in_(["pending", "retry_scheduled"]),
                             Job.available_at <= now,
                         ),
-                        and_(Job.status == "running", Job.leased_until < now),
+                        and_(
+                            Job.status == "running",
+                            Job.leased_until < now,
+                            Job.attempt_count < Job.max_attempts,
+                        ),
                     )
                 )
                 .order_by(Job.created_at, Job.id)
@@ -113,6 +145,28 @@ class JobProcessor:
         temporary = heartbeat.with_name(f".{heartbeat.name}.{self.worker_id}.tmp")
         temporary.write_text(str(time.time()), encoding="ascii")
         os.replace(temporary, heartbeat)
+
+    def cleanup_orphans(self) -> None:
+        """只清理超过安全窗口且没有数据库引用的临时/正式 Blob。"""
+
+        with self.database.session_factory() as session:
+            upload_keys = set(session.scalars(select(Document.storage_key)).all())
+            package_keys = {
+                key for key in session.scalars(select(Generation.package_key)).all() if key
+            }
+            preview_keys = {
+                key for key in session.scalars(select(Generation.preview_key)).all() if key
+            }
+        referenced_generated = package_keys | preview_keys
+        self.store.delete_unreferenced(
+            "staging", set(), self.settings.blob_orphan_grace_seconds
+        )
+        self.store.delete_unreferenced(
+            "uploads", upload_keys, self.settings.blob_orphan_grace_seconds
+        )
+        self.store.delete_unreferenced(
+            "generated", referenced_generated, self.settings.blob_orphan_grace_seconds
+        )
 
     def process(self, claimed: ClaimedJob) -> None:
         stop = threading.Event()
@@ -213,7 +267,7 @@ class JobProcessor:
 
             result_payload: dict[str, object] = {"warnings": warnings}
             if extraction is not None:
-                dossier = DossierV1.from_matter(matter)
+                dossier = DossierV2.from_matter(matter)
                 dossier_payload = dossier.model_dump(mode="json")
                 next_facts = dossier_payload["facts"]
                 next_sources = dossier_payload["sources"]
@@ -221,12 +275,23 @@ class JobProcessor:
                 for field, value in extraction.facts.items():
                     if next_confirmations.get(field) != "confirmed":
                         next_facts[field] = value
-                        next_sources[field] = extraction.sources.get(field, [])
+                        next_sources[field] = [
+                            {**source, "parse_revision": document.parse_revision}
+                            for source in extraction.sources.get(field, [])
+                        ]
                         next_confirmations[field] = "pending"
-                DossierV1(
+                next_scope_signals = [
+                    signal
+                    for signal in dossier_payload["scope_signals"]
+                    if signal["document_id"] != document.id
+                ]
+                next_scope_signals.extend(extraction.scope_signals)
+                DossierV2(
                     facts=next_facts,
                     sources=next_sources,
                     confirmations=next_confirmations,
+                    scope_signals=next_scope_signals,
+                    amount_computation=dossier.amount_computation,
                 ).apply_to(matter)
                 result_payload["facts"] = sorted(extraction.facts)
             self._finish(job, result_payload)
@@ -291,6 +356,10 @@ class JobProcessor:
                 generation.package_key = package_blob.key
                 generation.preview_key = preview_blob.key
                 generation.sha256 = result.package_sha256
+                generation.package_size_bytes = package_blob.size_bytes
+                generation.preview_sha256 = result.preview_sha256
+                generation.preview_size_bytes = preview_blob.size_bytes
+                generation.artifact_manifest = result.manifest
                 generation.status = "completed"
                 matter.generated_revision = matter.revision
                 self._finish(
@@ -339,10 +408,16 @@ class JobProcessor:
 
     def run_forever(self) -> None:
         logger.info("worker_started")
+        self.cleanup_orphans()
+        idle_cycles = 0
         while True:
             self._touch_worker_heartbeat()
             claimed = self.claim()
             if claimed:
+                idle_cycles = 0
                 self.process(claimed)
             else:
+                idle_cycles += 1
+                if idle_cycles % 240 == 0:
+                    self.cleanup_orphans()
                 time.sleep(self.settings.worker_poll_seconds)

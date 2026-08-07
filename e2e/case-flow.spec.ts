@@ -4,6 +4,14 @@ import { expect, test } from "@playwright/test";
 
 const fixtureRoot = path.resolve(import.meta.dirname, "..", ".artifacts", "e2e-fixtures");
 
+async function confirmVisibleFields(page: import("@playwright/test").Page) {
+  const checkboxes = page.getByRole("checkbox", { name: "我已核对当前值与来源" });
+  for (let index = 0; index < await checkboxes.count(); index += 1) {
+    const checkbox = checkboxes.nth(index);
+    if (await checkbox.isEnabled()) await checkbox.check();
+  }
+}
+
 test("从虚构材料生成并下载可审阅草稿材料包", async ({ page }, testInfo) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "开始前确认适用条件" })).toBeVisible();
@@ -38,6 +46,7 @@ test("从虚构材料生成并下载可审阅草稿材料包", async ({ page }, 
   await page.locator('[name="document_date"]').fill("2026-08-06");
   await page.locator('[name="applicant_id"]').fill("TEST-ID-APPLICANT");
   await page.locator('[name="respondent_id"]').fill("TEST-ID-RESPONDENT");
+  await confirmVisibleFields(page);
   await page.getByRole("button", { name: "保存并提取申请内容" }).click();
   await expect(page.getByRole("heading", { name: "申请内容" })).toBeVisible();
 
@@ -46,6 +55,7 @@ test("从虚构材料生成并下载可审阅草稿材料包", async ({ page }, 
   await page.locator('[name="filing_court"]').fill("北京市朝阳区人民法院");
   await page.locator('[name="service_address"]').fill("测试地址（非真实）");
   await page.locator('[name="phone"]').fill("TEST-PHONE");
+  await confirmVisibleFields(page);
   await page.getByRole("button", { name: "保存并运行检查" }).click();
   await expect(page.getByRole("heading", { name: "检查与预览" })).toBeVisible();
 
@@ -57,8 +67,10 @@ test("从虚构材料生成并下载可审阅草稿材料包", async ({ page }, 
   await expect(page.getByTitle("申请执行书草稿预览")).toBeVisible({ timeout: 45_000 });
 
   await page.getByRole("button", { name: "预览完成，进入导出" }).click();
-  await page.getByRole("checkbox", { name: /我已预览申请书/ }).check();
-  await page.getByRole("button", { name: "最终确认并解锁下载" }).click();
+  await page.getByRole("checkbox", { name: /我已逐项核对姓名/ }).check();
+  await page.getByRole("checkbox", { name: /我理解所有输出仅为草稿/ }).check();
+  await page.getByRole("checkbox", { name: /我已自行核对受理法院/ }).check();
+  await page.getByRole("button", { name: "提交三项声明并解锁下载" }).click();
   const downloadLink = page.getByRole("link", { name: /下载申请强制执行材料包/ });
   await expect(downloadLink).toBeVisible();
   const downloadPromise = page.waitForEvent("download");
