@@ -1,22 +1,13 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import type {
   Generation,
+  GenerationStartResult,
   Job,
   Matter,
+  UploadResult,
   ValidationResult,
   DocumentKind
 } from "@case-filing/contracts";
-
-interface UploadResult {
-  document: Matter["documents"][number];
-  job_id: string;
-  revision: number;
-}
-
-interface GenerationStartResult {
-  generation: Generation;
-  job_id: string;
-}
 
 export const caseApi = createApi({
   reducerPath: "caseApi",

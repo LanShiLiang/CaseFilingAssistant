@@ -26,6 +26,7 @@ class Matter(Base):
     eligibility_version: Mapped[str] = mapped_column(String(40))
     eligibility_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
     revision: Mapped[int] = mapped_column(Integer, default=1)
+    dossier_schema_version: Mapped[str] = mapped_column(String(40), default="dossier_v1")
     facts: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
     confirmations: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
     sources: Mapped[dict[str, list[dict[str, Any]]]] = mapped_column(JSON, default=dict)
@@ -42,6 +43,9 @@ class Matter(Base):
     generations: Mapped[list[Generation]] = relationship(
         back_populates="matter", cascade="all, delete-orphan", lazy="selectin"
     )
+    validation_runs: Mapped[list[ValidationRun]] = relationship(
+        back_populates="matter", cascade="all, delete-orphan", lazy="selectin"
+    )
 
 
 class Document(Base):
@@ -56,6 +60,8 @@ class Document(Base):
     sha256: Mapped[str] = mapped_column(String(64))
     size_bytes: Mapped[int] = mapped_column(Integer)
     parse_status: Mapped[str] = mapped_column(String(30), default="pending")
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    parse_revision: Mapped[int] = mapped_column(Integer, default=1)
     extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
@@ -77,8 +83,10 @@ class Job(Base):
     attempt_count: Mapped[int] = mapped_column(Integer, default=0)
     max_attempts: Mapped[int] = mapped_column(Integer, default=3)
     progress: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    lease_owner: Mapped[str | None] = mapped_column(String(120), nullable=True)
     lease_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
     leased_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
@@ -96,6 +104,11 @@ class Generation(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     matter_id: Mapped[str] = mapped_column(ForeignKey("matters.id", ondelete="CASCADE"), index=True)
     revision: Mapped[int] = mapped_column(Integer)
+    validation_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("validation_runs.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    input_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    input_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String(30), default="pending")
     final_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
     package_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -108,6 +121,32 @@ class Generation(Base):
     )
 
     matter: Mapped[Matter] = relationship(back_populates="generations")
+
+
+class ValidationRun(Base):
+    __tablename__ = "validation_runs"
+    __table_args__ = (
+        UniqueConstraint(
+            "matter_id",
+            "revision",
+            "input_hash",
+            "rule_version",
+            name="uq_validation_input",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    matter_id: Mapped[str] = mapped_column(
+        ForeignKey("matters.id", ondelete="CASCADE"), index=True
+    )
+    revision: Mapped[int] = mapped_column(Integer)
+    input_hash: Mapped[str] = mapped_column(String(64))
+    rule_version: Mapped[str] = mapped_column(String(80))
+    issues: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    passed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    matter: Mapped[Matter] = relationship(back_populates="validation_runs")
 
 
 class IdempotencyRecord(Base):

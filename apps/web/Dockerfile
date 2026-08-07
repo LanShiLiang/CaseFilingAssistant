@@ -1,6 +1,6 @@
 FROM node:22-bookworm-slim AS builder
 
-RUN npm install --global pnpm@11.9.0
+RUN npm install --global pnpm@11.16.0
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 COPY apps/web/package.json ./apps/web/package.json

@@ -13,6 +13,17 @@ DocumentKind = Literal[
     "respondent_id_back",
     "performance_evidence",
 ]
+ConfirmationState = Literal["pending", "confirmed", "invalidated"]
+ExtractionMethod = Literal["text", "ocr", "user", "deterministic"]
+DocumentParseStatus = Literal["pending", "processing", "completed", "failed"]
+JobStatus = Literal["pending", "running", "retry_scheduled", "completed", "failed_terminal"]
+JobKind = Literal["parse_document", "generate_package"]
+GenerationStatus = Literal["pending", "processing", "completed", "superseded", "failed"]
+MatterTitleState = Literal[
+    "pending_upload", "processing", "pending_confirmation", "case_number_ready"
+]
+StepKey = Literal["parties_and_basis", "application", "review", "export"]
+StepState = Literal["available", "locked", "complete", "blocked"]
 
 
 class CreateMatterRequest(BaseModel):
@@ -39,24 +50,43 @@ class MatterDocumentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    kind: str
+    kind: DocumentKind
     filename: str
-    parse_status: str
+    parse_status: DocumentParseStatus
+    active: bool
+    parse_revision: int
     created_at: datetime
+
+
+class SourceReferenceResponse(BaseModel):
+    document_id: str
+    page: int | None
+    snippet: str
+    extraction_method: ExtractionMethod
+    confidence: float | None
+
+
+class StepGateResponse(BaseModel):
+    step: StepKey
+    state: StepState
+    allowed: bool
+    reasons: list[str] = Field(default_factory=list)
 
 
 class MatterResponse(BaseModel):
     id: str
-    workflow_profile: str
+    workflow_profile: Literal["self_single_v1"]
     eligibility_version: str
     eligibility_confirmed: bool
     revision: int
-    title_state: str
+    dossier_schema_version: Literal["dossier_v1"]
+    title_state: MatterTitleState
     display_title: str
     facts: dict[str, str]
-    confirmations: dict[str, str]
-    sources: dict[str, list[dict[str, Any]]]
+    confirmations: dict[str, ConfirmationState]
+    sources: dict[str, list[SourceReferenceResponse]]
     documents: list[MatterDocumentResponse]
+    step_gates: list[StepGateResponse]
     validated_revision: int | None
     generated_revision: int | None
     latest_generation_id: str | None
@@ -72,8 +102,8 @@ class UploadResponse(BaseModel):
 
 class JobResponse(BaseModel):
     id: str
-    kind: str
-    status: str
+    kind: JobKind
+    status: JobStatus
     attempt: int
     max_attempts: int
     progress: int | None
@@ -99,7 +129,7 @@ class GenerationResponse(BaseModel):
     id: str
     matter_id: str
     revision: int
-    status: str
+    status: GenerationStatus
     final_confirmed: bool
     preview_url: str | None
     download_url: str | None
@@ -115,6 +145,10 @@ class GenerationStartResponse(BaseModel):
 class CapabilityResponse(BaseModel):
     database: bool
     storage: bool
+    worker: bool
+    worker_reason: Literal[
+        "worker_heartbeat_missing", "worker_heartbeat_stale"
+    ] | None = None
     text_pdf: bool = True
     docx: bool = True
     image_ocr: bool

@@ -7,7 +7,7 @@ import zipfile
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 from docx import Document as WordDocument
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_ALIGNMENT
@@ -15,6 +15,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt
+from pydantic import BaseModel, ConfigDict
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
 from reportlab.lib.pagesizes import A4
@@ -23,9 +24,6 @@ from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
-
-from app.config import Settings
-from app.models import Matter
 
 FIELD_LABELS = {
     "document_type": "文书类型",
@@ -55,6 +53,26 @@ class GeneratedPackage:
     preview_pdf: bytes
     package_sha256: str
     manifest: dict[str, Any]
+
+
+class GenerationContext(BaseModel):
+    """文书渲染的唯一输入；不得包含 ORM、未确认候选或 OCR 全文。"""
+
+    model_config = ConfigDict(frozen=True)
+
+    schema_version: Literal["generation_input_v1"]
+    matter_id: str
+    revision: int
+    workflow_profile: str
+    facts: dict[str, str]
+    sources: dict[str, list[dict[str, Any]]]
+    validation_run_id: str
+    template_version: str
+    rule_set_version: str
+
+    @classmethod
+    def from_payload(cls, payload: dict[str, Any]) -> GenerationContext:
+        return cls.model_validate(payload)
 
 
 def _set_run_font(run, *, size: float = 12, bold: bool = False, name: str = "宋体") -> None:
@@ -119,8 +137,8 @@ def _add_body_paragraph(document: WordDocument, text: str, *, indent: bool = Tru
     _set_run_font(run)
 
 
-def build_application_docx(matter: Matter) -> bytes:
-    facts = matter.facts
+def build_application_docx(context: GenerationContext) -> bytes:
+    facts = context.facts
     document = WordDocument()
     _configure_document(document)
     _add_title(document, "申请执行书（草稿）")
@@ -199,15 +217,15 @@ def _keep_row_together(row, *, repeat_header: bool = False) -> None:
         properties.append(OxmlElement("w:tblHeader"))
 
 
-def build_material_list_docx(matter: Matter) -> bytes:
+def build_material_list_docx(context: GenerationContext) -> bytes:
     document = WordDocument()
     _configure_document(document)
     _add_title(document, "申请强制执行材料清单（草稿）")
-    _add_label_paragraph(document, "事项案号：", matter.facts["case_number"])
+    _add_label_paragraph(document, "事项案号：", context.facts["case_number"])
 
     rows = [
         ("1", "申请执行书", "系统生成草稿，打印后需人工复核并签名"),
-        ("2", matter.facts["document_type"], "执行依据，请按目标法院要求准备份数"),
+        ("2", context.facts["document_type"], "执行依据，请按目标法院要求准备份数"),
         ("3", "申请执行人身份证明", "身份证正反面复印件；必要时核对原件要求"),
         ("4", "履行情况材料", "如存在已履行金额，附付款或收款记录"),
         ("5", "收款账户信息", "如目标法院要求，另行填写并人工确认"),
@@ -241,15 +259,15 @@ def build_material_list_docx(matter: Matter) -> bytes:
     return stream.getvalue()
 
 
-def build_source_audit_docx(matter: Matter) -> bytes:
+def build_source_audit_docx(context: GenerationContext) -> bytes:
     document = WordDocument()
     _configure_document(document)
     _add_title(document, "字段来源核对表（内部审阅）")
     rows: list[tuple[str, str, str, str]] = []
-    for field, value in matter.facts.items():
+    for field, value in context.facts.items():
         if not value:
             continue
-        references = matter.sources.get(field, [])
+        references = context.sources.get(field, [])
         source = "用户填写"
         if references:
             first = references[0]
@@ -268,7 +286,7 @@ def build_source_audit_docx(matter: Matter) -> bytes:
                 FIELD_LABELS.get(field, field),
                 value,
                 source,
-                "已确认" if matter.confirmations.get(field) == "confirmed" else "待确认",
+                "已确认",
             )
         )
 
@@ -293,7 +311,7 @@ def build_source_audit_docx(matter: Matter) -> bytes:
     return stream.getvalue()
 
 
-def build_preview_pdf(matter: Matter) -> bytes:
+def build_preview_pdf(context: GenerationContext) -> bytes:
     pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
     stream = io.BytesIO()
 
@@ -349,7 +367,7 @@ def build_preview_pdf(matter: Matter) -> bytes:
         spaceBefore=10,
         spaceAfter=6,
     )
-    facts = matter.facts
+    facts = context.facts
     story = [Paragraph("申请执行书（草稿）", title_style)]
     for label, value in (
         ("申请执行人", facts["applicant_name"]),
@@ -381,19 +399,21 @@ def build_preview_pdf(matter: Matter) -> bytes:
     return stream.getvalue()
 
 
-def generate_package(matter: Matter, settings: Settings) -> GeneratedPackage:
-    # 调用方已在事务边界确认 revision 与阻断项；这里仅按已确认快照做确定性渲染。
-    application = build_application_docx(matter)
-    checklist = build_material_list_docx(matter)
-    source_audit = build_source_audit_docx(matter)
-    preview = build_preview_pdf(matter)
+def generate_package(context: GenerationContext) -> GeneratedPackage:
+    # 调用方已冻结并校验输入；这里不再读取数据库最新状态，只做确定性渲染。
+    application = build_application_docx(context)
+    checklist = build_material_list_docx(context)
+    source_audit = build_source_audit_docx(context)
+    preview = build_preview_pdf(context)
     generated_at = date.today().isoformat()
     manifest = {
-        "matter_id": matter.id,
-        "revision": matter.revision,
-        "workflow_profile": matter.workflow_profile,
-        "template_version": settings.template_version,
-        "rule_set_version": settings.rule_set_version,
+        "matter_id": context.matter_id,
+        "revision": context.revision,
+        "workflow_profile": context.workflow_profile,
+        "generation_input_schema": context.schema_version,
+        "validation_run_id": context.validation_run_id,
+        "template_version": context.template_version,
+        "rule_set_version": context.rule_set_version,
         "generated_on": generated_at,
         "draft_only": True,
         "files": {},

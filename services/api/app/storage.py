@@ -28,8 +28,14 @@ class LocalBlobStore:
         return candidate
 
     def write_bytes(self, category: str, suffix: str, content: bytes) -> StoredBlob:
+        staged = self.stage_bytes(suffix, content)
+        return self.publish(staged, category)
+
+    def stage_bytes(self, suffix: str, content: bytes) -> StoredBlob:
+        """先写入不可见 staging key；业务 CAS 通过后再发布到正式分类。"""
+
         digest = hashlib.sha256(content).hexdigest()
-        key = f"{category}/{uuid4().hex}{suffix}"
+        key = f"staging/{uuid4().hex}{suffix}"
         target = self._resolve(key)
         target.parent.mkdir(parents=True, exist_ok=True)
         temporary = target.with_name(f".{target.name}.{uuid4().hex}.tmp")
@@ -39,6 +45,19 @@ class LocalBlobStore:
             os.fsync(stream.fileno())
         os.replace(temporary, target)
         return StoredBlob(key=key, sha256=digest, size_bytes=len(content))
+
+    def publish(self, staged: StoredBlob, category: str) -> StoredBlob:
+        if not staged.key.startswith("staging/"):
+            raise ValueError("blob_not_staged")
+        source = self.path_for(staged.key)
+        key = f"{category}/{uuid4().hex}{source.suffix}"
+        target = self._resolve(key)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(source, target)
+        return StoredBlob(key=key, sha256=staged.sha256, size_bytes=staged.size_bytes)
+
+    def delete(self, key: str) -> None:
+        self._resolve(key).unlink(missing_ok=True)
 
     def read_bytes(self, key: str) -> bytes:
         return self._resolve(key).read_bytes()

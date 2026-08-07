@@ -1,33 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { FileCheck2, HardDrive, LockKeyhole } from "lucide-react";
-import { useState } from "react";
 
 import { EligibilityGate } from "./EligibilityGate";
-import { useCreateMatterMutation, useListMattersQuery } from "@/store/caseApi";
-import { parseApiError } from "@/lib/domain";
+import { useCreateEligibleMatter } from "@/features/eligibility/useCreateEligibleMatter";
+import { useListMattersQuery } from "@/store/caseApi";
 
 export function HomePage() {
-  const router = useRouter();
-  const [createMatter, { isLoading }] = useCreateMatterMutation();
   const { data: matters = [] } = useListMattersQuery();
-  const [error, setError] = useState("");
-
-  async function handleCreate() {
-    setError("");
-    try {
-      const matter = await createMatter({
-        eligibility_confirmed: true,
-        eligibility_version: "self_single_v1.0.0",
-        idempotencyKey: crypto.randomUUID()
-      }).unwrap();
-      router.push(`/matters/${matter.id}`);
-    } catch (reason) {
-      setError(parseApiError(reason));
-    }
-  }
+  const { create, creating, error } = useCreateEligibleMatter();
 
   return (
     <main className="landing-shell">
@@ -53,7 +35,7 @@ export function HomePage() {
       </section>
       {error ? <div className="error-banner" role="alert">{error}</div> : null}
       <section className="home-grid">
-        <EligibilityGate onCreate={handleCreate} creating={isLoading} />
+        <EligibilityGate onCreate={create} creating={creating} />
         <aside className="recent-card">
           <h2>最近本地事项</h2>
           {matters.length === 0 ? <p className="muted">暂无事项。完成适用确认后新建。</p> : null}

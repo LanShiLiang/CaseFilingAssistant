@@ -8,12 +8,20 @@ from typing import Any
 
 from fastapi import UploadFile
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.config import Settings
+from app.dossier import DossierV1
 from app.errors import DomainError
 from app.models import Document, Generation, IdempotencyRecord, Job, Matter
-from app.schemas import GenerationResponse, JobResponse, MatterDocumentResponse, MatterResponse
+from app.schemas import (
+    GenerationResponse,
+    JobResponse,
+    MatterDocumentResponse,
+    MatterResponse,
+    StepGateResponse,
+)
 from app.storage import LocalBlobStore
 
 ALLOWED_FACTS = {
@@ -55,6 +63,14 @@ DOCUMENT_RULES: dict[str, tuple[set[str], set[str]]] = {
         {".pdf", ".jpg", ".jpeg", ".png"},
         {"application/pdf", "image/jpeg", "image/png"},
     ),
+}
+
+REPLACEABLE_DOCUMENT_KINDS = {
+    "legal_basis",
+    "applicant_id_front",
+    "applicant_id_back",
+    "respondent_id_front",
+    "respondent_id_back",
 }
 
 
@@ -118,20 +134,21 @@ def get_matter(session: Session, matter_id: str, *, lock: bool = False) -> Matte
 
 
 def matter_to_response(matter: Matter) -> MatterResponse:
+    dossier = DossierV1.from_matter(matter)
     legal_basis = next(
         (
             document
             for document in sorted(matter.documents, key=lambda item: item.created_at, reverse=True)
-            if document.kind == "legal_basis"
+            if document.kind == "legal_basis" and document.active
         ),
         None,
     )
-    case_number = matter.facts.get("case_number")
+    case_number = dossier.facts.get("case_number")
     if not legal_basis:
         title_state, display_title = "pending_upload", "待上传执行依据"
     elif legal_basis.parse_status in {"pending", "processing"}:
         title_state, display_title = "processing", "正在识别执行依据"
-    elif case_number and matter.confirmations.get("case_number") == "confirmed":
+    elif case_number and dossier.confirmations.get("case_number") == "confirmed":
         title_state, display_title = "case_number_ready", case_number
     else:
         title_state, display_title = "pending_confirmation", "案号待确认"
@@ -147,18 +164,93 @@ def matter_to_response(matter: Matter) -> MatterResponse:
         eligibility_version=matter.eligibility_version,
         eligibility_confirmed=matter.eligibility_confirmed,
         revision=matter.revision,
+        dossier_schema_version=dossier.schema_version,
         title_state=title_state,
         display_title=display_title,
-        facts=dict(matter.facts),
-        confirmations=dict(matter.confirmations),
-        sources=dict(matter.sources),
+        facts=dict(dossier.facts),
+        confirmations=dict(dossier.confirmations),
+        sources={
+            key: [reference.model_dump(mode="json") for reference in references]
+            for key, references in dossier.sources.items()
+        },
         documents=[MatterDocumentResponse.model_validate(item) for item in matter.documents],
+        step_gates=_step_gates(matter, dossier),
         validated_revision=matter.validated_revision,
         generated_revision=generated_revision,
         latest_generation_id=latest_generation.id if latest_generation else None,
         created_at=matter.created_at,
         updated_at=matter.updated_at,
     )
+
+
+def _step_gates(matter: Matter, dossier: DossierV1) -> list[StepGateResponse]:
+    """服务端统一派生步骤门禁；客户端只能把这些状态映射为界面。"""
+
+    active_kinds = {item.kind for item in matter.documents if item.active}
+    step_one_fields = {
+        "document_type",
+        "case_number",
+        "rendering_court",
+        "applicant_name",
+        "applicant_id",
+        "respondent_name",
+    }
+    step_two_fields = {
+        "judgment_amount",
+        "paid_amount",
+        "outstanding_amount",
+        "request_text",
+        "filing_court",
+        "service_address",
+    }
+
+    def confirmed(fields: set[str]) -> bool:
+        return all(
+            dossier.facts.get(field, "").strip()
+            and dossier.confirmations.get(field) == "confirmed"
+            for field in fields
+        )
+
+    missing_materials = [
+        kind
+        for kind in ("legal_basis", "applicant_id_front", "applicant_id_back")
+        if kind not in active_kinds
+    ]
+    step_one_complete = not missing_materials and confirmed(step_one_fields)
+    step_two_complete = step_one_complete and confirmed(step_two_fields)
+    review_complete = step_two_complete and matter.validated_revision == matter.revision
+    export_allowed = review_complete and matter.generated_revision == matter.revision
+
+    return [
+        StepGateResponse(
+            step="parties_and_basis",
+            state="complete" if step_one_complete else "available",
+            allowed=True,
+            reasons=[],
+        ),
+        StepGateResponse(
+            step="application",
+            state=("complete" if step_two_complete else "available")
+            if step_one_complete
+            else "locked",
+            allowed=step_one_complete,
+            reasons=[] if step_one_complete else ["parties_and_basis_incomplete"],
+        ),
+        StepGateResponse(
+            step="review",
+            state="complete"
+            if review_complete
+            else ("available" if step_two_complete else "locked"),
+            allowed=step_two_complete,
+            reasons=[] if step_two_complete else ["application_incomplete"],
+        ),
+        StepGateResponse(
+            step="export",
+            state="available" if export_allowed else "locked",
+            allowed=export_allowed,
+            reasons=[] if export_allowed else ["current_generation_required"],
+        ),
+    ]
 
 
 def job_to_response(job: Job) -> JobResponse:
@@ -230,7 +322,17 @@ def create_matter(
     save_idempotent_response(
         session, "create_matter", idempotency_key, payload, response.model_dump(mode="json")
     )
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # 并发使用同一幂等键时，唯一约束决定唯一赢家；失败事务回滚后重读赢家结果。
+        session.rollback()
+        concurrent_response = get_idempotent_response(
+            session, "create_matter", idempotency_key, payload
+        )
+        if concurrent_response:
+            return MatterResponse.model_validate(concurrent_response)
+        raise
     return response
 
 
@@ -277,34 +379,49 @@ def upload_document(
     if not content:
         raise DomainError("empty_file", "文件不能为空。", 422)
     _validate_magic(content, suffix)
-    blob = store.write_bytes("uploads", suffix, content)
-
-    # 替换同类主材料时保留旧记录用于审计，但只让最新一份参与后续提取。
-    matter.revision += 1
-    matter.validated_revision = None
-    document = Document(
-        matter_id=matter.id,
-        kind=kind,
-        filename=filename,
-        mime_type=mime_type,
-        storage_key=blob.key,
-        sha256=blob.sha256,
-        size_bytes=blob.size_bytes,
-        parse_status="pending",
-    )
-    session.add(document)
-    session.flush()
-    job = Job(
-        kind="parse_document",
-        dedupe_key=f"{document.id}:{matter.revision}",
-        matter_id=matter.id,
-        input_revision=matter.revision,
-        payload={"document_id": document.id},
-        max_attempts=settings.worker_max_attempts,
-    )
-    session.add(job)
-    session.commit()
-    return document, job, matter.revision
+    staged = store.stage_bytes(suffix, content)
+    blob = None
+    try:
+        # 替换同类主材料时保留旧记录用于审计，但只让最新一份参与后续提取。
+        if kind in REPLACEABLE_DOCUMENT_KINDS:
+            for existing in matter.documents:
+                if existing.kind == kind and existing.active:
+                    existing.active = False
+        matter.revision += 1
+        matter.validated_revision = None
+        blob = store.publish(staged, "uploads")
+        document = Document(
+            matter_id=matter.id,
+            kind=kind,
+            filename=filename,
+            mime_type=mime_type,
+            storage_key=blob.key,
+            sha256=blob.sha256,
+            size_bytes=blob.size_bytes,
+            parse_status="pending",
+            parse_revision=matter.revision,
+        )
+        session.add(document)
+        session.flush()
+        job = Job(
+            kind="parse_document",
+            dedupe_key=f"{document.id}:{matter.revision}",
+            matter_id=matter.id,
+            input_revision=matter.revision,
+            payload={"document_id": document.id},
+            max_attempts=settings.worker_max_attempts,
+        )
+        session.add(job)
+        session.commit()
+        return document, job, matter.revision
+    except Exception:
+        session.rollback()
+        if blob is not None:
+            store.delete(blob.key)
+        raise
+    finally:
+        # publish 成功后 staging key 已被移动；失败时清理仍保持幂等。
+        store.delete(staged.key)
 
 
 def save_confirmed_facts(
@@ -330,13 +447,15 @@ def save_confirmed_facts(
     if set(confirm_fields) - set(fields):
         raise DomainError("confirmation_without_value", "确认字段必须同时提交当前值。", 422)
 
-    next_facts = dict(matter.facts)
-    next_confirmations = dict(matter.confirmations)
-    next_sources = dict(matter.sources)
+    dossier = DossierV1.from_matter(matter)
+    dossier_payload = dossier.model_dump(mode="json")
+    next_facts = dossier_payload["facts"]
+    next_confirmations = dossier_payload["confirmations"]
+    next_sources = dossier_payload["sources"]
     for field, value in fields.items():
         next_facts[field] = value
         next_confirmations[field] = "confirmed" if field in confirm_fields else "pending"
-        if field not in next_sources or matter.facts.get(field) != value:
+        if field not in next_sources or dossier.facts.get(field) != value:
             next_sources[field] = [
                 {
                     "document_id": "user",
@@ -367,9 +486,11 @@ def save_confirmed_facts(
     except InvalidOperation:
         pass
 
-    matter.facts = next_facts
-    matter.confirmations = next_confirmations
-    matter.sources = next_sources
+    DossierV1(
+        facts=next_facts,
+        confirmations=next_confirmations,
+        sources=next_sources,
+    ).apply_to(matter)
     # 每次事实确认都产生新 revision，并立即废止旧校验/旧生成资格。
     matter.revision += 1
     matter.validated_revision = None

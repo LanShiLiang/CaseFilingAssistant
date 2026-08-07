@@ -279,6 +279,10 @@ export interface components {
              * @default true
              */
             text_pdf: boolean;
+            /** Worker */
+            worker: boolean;
+            /** Worker Reason */
+            worker_reason?: ("worker_heartbeat_missing" | "worker_heartbeat_stale") | null;
         };
         /** CreateMatterRequest */
         CreateMatterRequest: {
@@ -311,8 +315,11 @@ export interface components {
             revision: number;
             /** Sha256 */
             sha256: string | null;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "processing" | "completed" | "superseded" | "failed";
         };
         /** GenerationStartResponse */
         GenerationStartResponse: {
@@ -333,8 +340,11 @@ export interface components {
             error_code: string | null;
             /** Id */
             id: string;
-            /** Kind */
-            kind: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "parse_document" | "generate_package";
             /** Max Attempts */
             max_attempts: number;
             /** Progress */
@@ -343,11 +353,16 @@ export interface components {
             result: {
                 [key: string]: unknown;
             };
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "retry_scheduled" | "completed" | "failed_terminal";
         };
         /** MatterDocumentResponse */
         MatterDocumentResponse: {
+            /** Active */
+            active: boolean;
             /**
              * Created At
              * Format: date-time
@@ -357,16 +372,24 @@ export interface components {
             filename: string;
             /** Id */
             id: string;
-            /** Kind */
-            kind: string;
-            /** Parse Status */
-            parse_status: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "legal_basis" | "applicant_id_front" | "applicant_id_back" | "respondent_id_front" | "respondent_id_back" | "performance_evidence";
+            /** Parse Revision */
+            parse_revision: number;
+            /**
+             * Parse Status
+             * @enum {string}
+             */
+            parse_status: "pending" | "processing" | "completed" | "failed";
         };
         /** MatterResponse */
         MatterResponse: {
             /** Confirmations */
             confirmations: {
-                [key: string]: string;
+                [key: string]: "pending" | "confirmed" | "invalidated";
             };
             /**
              * Created At
@@ -377,6 +400,11 @@ export interface components {
             display_title: string;
             /** Documents */
             documents: components["schemas"]["MatterDocumentResponse"][];
+            /**
+             * Dossier Schema Version
+             * @constant
+             */
+            dossier_schema_version: "dossier_v1";
             /** Eligibility Confirmed */
             eligibility_confirmed: boolean;
             /** Eligibility Version */
@@ -395,12 +423,15 @@ export interface components {
             revision: number;
             /** Sources */
             sources: {
-                [key: string]: {
-                    [key: string]: unknown;
-                }[];
+                [key: string]: components["schemas"]["SourceReferenceResponse"][];
             };
-            /** Title State */
-            title_state: string;
+            /** Step Gates */
+            step_gates: components["schemas"]["StepGateResponse"][];
+            /**
+             * Title State
+             * @enum {string}
+             */
+            title_state: "pending_upload" | "processing" | "pending_confirmation" | "case_number_ready";
             /**
              * Updated At
              * Format: date-time
@@ -408,8 +439,11 @@ export interface components {
             updated_at: string;
             /** Validated Revision */
             validated_revision: number | null;
-            /** Workflow Profile */
-            workflow_profile: string;
+            /**
+             * Workflow Profile
+             * @constant
+             */
+            workflow_profile: "self_single_v1";
         };
         /** RevisionRequest */
         RevisionRequest: {
@@ -426,6 +460,39 @@ export interface components {
             fields: {
                 [key: string]: string;
             };
+        };
+        /** SourceReferenceResponse */
+        SourceReferenceResponse: {
+            /** Confidence */
+            confidence: number | null;
+            /** Document Id */
+            document_id: string;
+            /**
+             * Extraction Method
+             * @enum {string}
+             */
+            extraction_method: "text" | "ocr" | "user" | "deterministic";
+            /** Page */
+            page: number | null;
+            /** Snippet */
+            snippet: string;
+        };
+        /** StepGateResponse */
+        StepGateResponse: {
+            /** Allowed */
+            allowed: boolean;
+            /** Reasons */
+            reasons?: string[];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "available" | "locked" | "complete" | "blocked";
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "parties_and_basis" | "application" | "review" | "export";
         };
         /** UploadResponse */
         UploadResponse: {

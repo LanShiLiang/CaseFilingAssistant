@@ -22,13 +22,15 @@ def complete_matter(**overrides):
     }
     values = {
         "eligibility_confirmed": True,
+        "dossier_schema_version": "dossier_v1",
         "documents": [
-            SimpleNamespace(kind="legal_basis"),
-            SimpleNamespace(kind="applicant_id_front"),
-            SimpleNamespace(kind="applicant_id_back"),
+            SimpleNamespace(kind="legal_basis", active=True),
+            SimpleNamespace(kind="applicant_id_front", active=True),
+            SimpleNamespace(kind="applicant_id_back", active=True),
         ],
         "facts": facts,
         "confirmations": {key: "confirmed" for key in facts},
+        "sources": {},
     }
     values.update(overrides)
     return SimpleNamespace(**values)

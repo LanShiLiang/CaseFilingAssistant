@@ -1,92 +1,25 @@
-export type DocumentKind =
-  | "legal_basis"
-  | "applicant_id_front"
-  | "applicant_id_back"
-  | "respondent_id_front"
-  | "respondent_id_back"
-  | "performance_evidence";
+import type { components } from "./generated";
 
-export type JobStatus =
-  | "pending"
-  | "running"
-  | "retry_scheduled"
-  | "completed"
-  | "failed_terminal";
+type Schemas = components["schemas"];
 
-export type ConfirmationState = "pending" | "confirmed" | "invalidated";
+/** 运行时代码只从 OpenAPI 生成 schema 派生协议类型，禁止维护平行手写响应结构。 */
+export type Matter = Schemas["MatterResponse"];
+export type MatterDocument = Schemas["MatterDocumentResponse"];
+export type DocumentKind = MatterDocument["kind"];
+export type ConfirmationState = Matter["confirmations"][string];
+export type SourceReference = Schemas["SourceReferenceResponse"];
+export type StepGate = Schemas["StepGateResponse"];
+export type Job = Schemas["JobResponse"];
+export type JobStatus = Job["status"];
+export type ValidationIssue = Schemas["ValidationIssueResponse"];
+export type ValidationResult = Schemas["ValidationResponse"];
+export type Generation = Schemas["GenerationResponse"];
+export type GenerationStartResult = Schemas["GenerationStartResponse"];
+export type UploadResult = Schemas["UploadResponse"];
+export type CreateMatterRequest = Schemas["CreateMatterRequest"];
+export type SaveFactsRequest = Schemas["SaveFactsRequest"];
 
-export interface SourceReference {
-  document_id: string;
-  page: number | null;
-  snippet: string;
-  extraction_method: "text" | "ocr" | "user";
-  confidence: number | null;
-}
-
-export interface MatterDocument {
-  id: string;
-  kind: DocumentKind;
-  filename: string;
-  parse_status: "pending" | "processing" | "completed" | "failed";
-  created_at: string;
-}
-
-export interface Matter {
-  id: string;
-  workflow_profile: "self_single_v1";
-  eligibility_version: string;
-  eligibility_confirmed: boolean;
-  revision: number;
-  title_state: "pending_upload" | "processing" | "pending_confirmation" | "case_number_ready";
-  display_title: string;
-  facts: Record<string, string>;
-  confirmations: Record<string, ConfirmationState>;
-  sources: Record<string, SourceReference[]>;
-  documents: MatterDocument[];
-  validated_revision: number | null;
-  generated_revision: number | null;
-  latest_generation_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Job {
-  id: string;
-  kind: "parse_document" | "generate_package";
-  status: JobStatus;
-  attempt: number;
-  max_attempts: number;
-  progress: number | null;
-  error_code: string | null;
-  result: Record<string, unknown>;
-}
-
-export interface ValidationIssue {
-  code: string;
-  severity: "blocking" | "warning" | "info";
-  field: string | null;
-  message: string;
-}
-
-export interface ValidationResult {
-  matter_id: string;
-  revision: number;
-  blocking_count: number;
-  issues: ValidationIssue[];
-}
-
-export interface Generation {
-  id: string;
-  matter_id: string;
-  revision: number;
-  status: "pending" | "processing" | "completed" | "superseded" | "failed";
-  final_confirmed: boolean;
-  preview_url: string | null;
-  download_url: string | null;
-  sha256: string | null;
-  created_at: string;
-}
-
+// FastAPI 的统一异常处理器不进入具体 endpoint response schema；错误 envelope 保持窄而稳定。
 export interface ApiErrorBody {
   error: {
     code: string;

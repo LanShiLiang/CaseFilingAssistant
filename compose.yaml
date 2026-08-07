@@ -83,8 +83,6 @@ services:
     depends_on:
       api:
         condition: service_healthy
-      worker:
-        condition: service_healthy
     ports:
       - "127.0.0.1:3000:3000"
     healthcheck:

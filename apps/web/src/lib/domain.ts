@@ -1,4 +1,4 @@
-import type { ApiErrorBody, Matter } from "@case-filing/contracts";
+import type { ApiErrorBody } from "@case-filing/contracts";
 
 export type FormDraft = {
   revision: number;
@@ -43,25 +43,6 @@ export function mergeDraftField(
     revision: serverRevision,
     fields: { ...baseFields, [name]: value }
   };
-}
-
-export function hasConfirmedFields(matter: Matter, fields: readonly string[]): boolean {
-  return fields.every(
-    (field) => Boolean(matter.facts[field]?.trim()) && matter.confirmations[field] === "confirmed"
-  );
-}
-
-export function deriveStepGates(matter: Matter) {
-  const kinds = new Set(matter.documents.map((item) => item.kind));
-  const stepOne =
-    kinds.has("legal_basis") &&
-    kinds.has("applicant_id_front") &&
-    kinds.has("applicant_id_back") &&
-    hasConfirmedFields(matter, STEP_ONE_FIELDS);
-  const stepTwo = stepOne && hasConfirmedFields(matter, STEP_TWO_FIELDS);
-  const stepThree = stepTwo && matter.validated_revision === matter.revision;
-  const stepFour = stepThree && matter.generated_revision === matter.revision;
-  return [true, stepOne, stepTwo, stepThree && stepFour] as const;
 }
 
 export function parseApiError(error: unknown): string {

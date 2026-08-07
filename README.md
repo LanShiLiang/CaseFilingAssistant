@@ -9,10 +9,11 @@
 - 首页用 1—4 项适用条件和一个总确认框阻断不适用事项。
 - 上传 PDF、DOCX、JPG、PNG；执行依据负责提取案号、法院、日期、当事人和金额等候选字段，识别失败时允许人工补充。
 - 四步闭环：当事人与执行依据 → 申请内容 → 检查与预览 → 导出。
-- 字段保存来源位置、置信度和人工确认状态；数据变化会提升 revision，并使旧校验、旧预览和旧导出失效。
-- 后台任务采用数据库租约、重试和旧 revision 发布拦截，API、worker、迁移共用同一后端代码。
+- 字段保存来源位置、置信度和人工确认状态；版本化 `DossierV1` 统一约束 JSON 数据，数据变化会提升 revision，并使旧校验、旧预览和旧导出失效。
+- 后台任务采用 lease token CAS、heartbeat、有限重试和旧 revision 发布拦截；API、worker、迁移共用同一后端代码。
+- 每次生成关联持久化 ValidationRun、不可变 GenerationInput hash 和版本化 manifest，renderer 不读取可变 ORM 事项。
 - 生成申请执行书草稿、材料清单、字段来源核对表、PDF 预览和 ZIP 材料包。
-- 桌面 Web 与移动 Web 使用同一业务流程；API 通过 Next.js 同源代理，浏览器不直接连接后端。
+- 桌面 Web 与移动 Web 使用同一业务流程；步骤门禁由服务端统一返回，API 通过带大小限制的 Next.js 流式同源代理访问。
 
 所有输出均为草稿。系统不会登录法院，也不会代为立案、提交、缴费、送达、联系法院或实施其他外部法律行为。
 
@@ -27,7 +28,7 @@
 
 ## 本机启动
 
-Windows 本机开发路径已经通过联合调试。需要 Node.js 22 以上、Python 3.12 和 PowerShell；根目录使用 `pnpm@11.9.0`，Python 依赖由锁定的 `uv` 环境管理。
+Windows 本机开发路径已经通过联合调试。需要 Node.js 22 以上、Python 3.12 和 PowerShell；根目录使用 `pnpm@11.16.0`，Python 依赖由锁定的 `uv` 环境管理。
 
 首次安装依赖：
 
@@ -72,6 +73,8 @@ pnpm test:e2e
 ```
 
 验收使用运行时生成的完全虚构材料，依次完成事项创建、材料上传、字段确认、申请内容校验、后台生成、最终确认和 ZIP 下载。测试 fixture、浏览器 trace、截图、覆盖率、上传件和生成文书只保存在被忽略的本地目录。
+
+GitHub Actions 在 PR、主分支和 `codex/**` 分支执行相同的前后端门禁，并用隔离 PostgreSQL 验证 Alembic 与双 worker `SKIP LOCKED` 领取语义；独立容器任务构建 production images、导出最终文件清单并检查禁入路径与镜像大小预算。本机没有 Docker 时，`pnpm artifact:audit` 只代表源码/build-context 边界通过，不能替代 CI 的最终镜像审计。
 
 常用的分层命令：
 

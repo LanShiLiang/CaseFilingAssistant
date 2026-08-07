@@ -24,10 +24,10 @@ class ApiHarness:
             self.app.state.store,
             self.settings,
         )
-        job_id = processor.claim()
-        assert job_id is not None, "预期至少有一个待处理任务"
-        processor.process(job_id)
-        return job_id
+        claimed = processor.claim()
+        assert claimed is not None, "预期至少有一个待处理任务"
+        processor.process(claimed)
+        return claimed.id
 
 
 @pytest.fixture

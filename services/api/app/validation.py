@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
+from app.dossier import DossierV1
 from app.models import Matter
 
 
@@ -33,10 +34,10 @@ STEP_TWO_FIELDS = {
 }
 
 
-def _required_issues(matter: Matter, fields: dict[str, str]) -> list[ValidationIssue]:
+def _required_issues(dossier: DossierV1, fields: dict[str, str]) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     for field, label in fields.items():
-        if not matter.facts.get(field):
+        if not dossier.facts.get(field):
             issues.append(
                 ValidationIssue(
                     code="required_field_missing",
@@ -45,7 +46,7 @@ def _required_issues(matter: Matter, fields: dict[str, str]) -> list[ValidationI
                     message=f"{label}尚未填写。",
                 )
             )
-        elif matter.confirmations.get(field) != "confirmed":
+        elif dossier.confirmations.get(field) != "confirmed":
             issues.append(
                 ValidationIssue(
                     code="field_not_confirmed",
@@ -60,13 +61,14 @@ def _required_issues(matter: Matter, fields: dict[str, str]) -> list[ValidationI
 def validate_matter(matter: Matter) -> list[ValidationIssue]:
     """服务端门禁是唯一权威；前端禁用按钮只能改善体验，不能替代这里。"""
 
+    dossier = DossierV1.from_matter(matter)
     issues: list[ValidationIssue] = []
     if not matter.eligibility_confirmed:
         issues.append(
             ValidationIssue("eligibility_not_confirmed", "blocking", "适用条件尚未确认。")
         )
 
-    kinds = {document.kind for document in matter.documents}
+    kinds = {document.kind for document in matter.documents if document.active}
     if "legal_basis" not in kinds:
         issues.append(ValidationIssue("legal_basis_missing", "blocking", "执行依据尚未上传。"))
     for required_kind, label in (
@@ -78,14 +80,14 @@ def validate_matter(matter: Matter) -> list[ValidationIssue]:
                 ValidationIssue("applicant_identity_missing", "blocking", f"{label}尚未上传。")
             )
 
-    issues.extend(_required_issues(matter, STEP_ONE_FIELDS))
-    issues.extend(_required_issues(matter, STEP_TWO_FIELDS))
+    issues.extend(_required_issues(dossier, STEP_ONE_FIELDS))
+    issues.extend(_required_issues(dossier, STEP_TWO_FIELDS))
 
     # 金额关系由 Decimal 精确校验，不能信任前端计算结果或浮点数近似。
     try:
-        judgment = Decimal(matter.facts.get("judgment_amount", ""))
-        paid = Decimal(matter.facts.get("paid_amount", ""))
-        outstanding = Decimal(matter.facts.get("outstanding_amount", ""))
+        judgment = Decimal(dossier.facts.get("judgment_amount", ""))
+        paid = Decimal(dossier.facts.get("paid_amount", ""))
+        outstanding = Decimal(dossier.facts.get("outstanding_amount", ""))
         if judgment < 0 or paid < 0 or outstanding < 0 or judgment - paid != outstanding:
             raise InvalidOperation
     except (InvalidOperation, ValueError):
@@ -98,7 +100,7 @@ def validate_matter(matter: Matter) -> list[ValidationIssue]:
             )
         )
 
-    if not matter.facts.get("document_date"):
+    if not dossier.facts.get("document_date"):
         issues.append(
             ValidationIssue(
                 "document_date_unconfirmed",

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "pnpm@11.16.0",
   "engines": {
     "node": ">=22.0.0"
   },
@@ -20,6 +20,7 @@
     "contracts:generate": "powershell -ExecutionPolicy Bypass -File scripts/generate-contracts.ps1",
     "contracts:check": "powershell -ExecutionPolicy Bypass -File scripts/check-contracts.ps1",
     "artifact:audit": "powershell -ExecutionPolicy Bypass -File scripts/artifact-audit.ps1",
+    "artifact:audit:image": "bash scripts/image-artifact-audit.sh case-filing-api:audit case-filing-web:audit",
     "verify": "powershell -ExecutionPolicy Bypass -File scripts/verify.ps1"
   },
   "devDependencies": {

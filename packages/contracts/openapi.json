@@ -53,11 +53,31 @@
             "default": true,
             "title": "Text Pdf",
             "type": "boolean"
+          },
+          "worker": {
+            "title": "Worker",
+            "type": "boolean"
+          },
+          "worker_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "worker_heartbeat_missing",
+                  "worker_heartbeat_stale"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worker Reason"
           }
         },
         "required": [
           "database",
           "storage",
+          "worker",
           "image_ocr"
         ],
         "title": "CapabilityResponse",
@@ -138,6 +158,13 @@
             "title": "Sha256"
           },
           "status": {
+            "enum": [
+              "pending",
+              "processing",
+              "completed",
+              "superseded",
+              "failed"
+            ],
             "title": "Status",
             "type": "string"
           }
@@ -208,6 +235,10 @@
             "type": "string"
           },
           "kind": {
+            "enum": [
+              "parse_document",
+              "generate_package"
+            ],
             "title": "Kind",
             "type": "string"
           },
@@ -232,6 +263,13 @@
             "type": "object"
           },
           "status": {
+            "enum": [
+              "pending",
+              "running",
+              "retry_scheduled",
+              "completed",
+              "failed_terminal"
+            ],
             "title": "Status",
             "type": "string"
           }
@@ -251,6 +289,10 @@
       },
       "MatterDocumentResponse": {
         "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -265,10 +307,28 @@
             "type": "string"
           },
           "kind": {
+            "enum": [
+              "legal_basis",
+              "applicant_id_front",
+              "applicant_id_back",
+              "respondent_id_front",
+              "respondent_id_back",
+              "performance_evidence"
+            ],
             "title": "Kind",
             "type": "string"
           },
+          "parse_revision": {
+            "title": "Parse Revision",
+            "type": "integer"
+          },
           "parse_status": {
+            "enum": [
+              "pending",
+              "processing",
+              "completed",
+              "failed"
+            ],
             "title": "Parse Status",
             "type": "string"
           }
@@ -278,6 +338,8 @@
           "kind",
           "filename",
           "parse_status",
+          "active",
+          "parse_revision",
           "created_at"
         ],
         "title": "MatterDocumentResponse",
@@ -287,6 +349,11 @@
         "properties": {
           "confirmations": {
             "additionalProperties": {
+              "enum": [
+                "pending",
+                "confirmed",
+                "invalidated"
+              ],
               "type": "string"
             },
             "title": "Confirmations",
@@ -307,6 +374,11 @@
             },
             "title": "Documents",
             "type": "array"
+          },
+          "dossier_schema_version": {
+            "const": "dossier_v1",
+            "title": "Dossier Schema Version",
+            "type": "string"
           },
           "eligibility_confirmed": {
             "title": "Eligibility Confirmed",
@@ -356,15 +428,27 @@
           "sources": {
             "additionalProperties": {
               "items": {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/SourceReferenceResponse"
               },
               "type": "array"
             },
             "title": "Sources",
             "type": "object"
           },
+          "step_gates": {
+            "items": {
+              "$ref": "#/components/schemas/StepGateResponse"
+            },
+            "title": "Step Gates",
+            "type": "array"
+          },
           "title_state": {
+            "enum": [
+              "pending_upload",
+              "processing",
+              "pending_confirmation",
+              "case_number_ready"
+            ],
             "title": "Title State",
             "type": "string"
           },
@@ -385,6 +469,7 @@
             "title": "Validated Revision"
           },
           "workflow_profile": {
+            "const": "self_single_v1",
             "title": "Workflow Profile",
             "type": "string"
           }
@@ -395,12 +480,14 @@
           "eligibility_version",
           "eligibility_confirmed",
           "revision",
+          "dossier_schema_version",
           "title_state",
           "display_title",
           "facts",
           "confirmations",
           "sources",
           "documents",
+          "step_gates",
           "validated_revision",
           "generated_revision",
           "latest_generation_id",
@@ -452,6 +539,101 @@
           "confirm_fields"
         ],
         "title": "SaveFactsRequest",
+        "type": "object"
+      },
+      "SourceReferenceResponse": {
+        "properties": {
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "document_id": {
+            "title": "Document Id",
+            "type": "string"
+          },
+          "extraction_method": {
+            "enum": [
+              "text",
+              "ocr",
+              "user",
+              "deterministic"
+            ],
+            "title": "Extraction Method",
+            "type": "string"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "snippet": {
+            "title": "Snippet",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document_id",
+          "page",
+          "snippet",
+          "extraction_method",
+          "confidence"
+        ],
+        "title": "SourceReferenceResponse",
+        "type": "object"
+      },
+      "StepGateResponse": {
+        "properties": {
+          "allowed": {
+            "title": "Allowed",
+            "type": "boolean"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "available",
+              "locked",
+              "complete",
+              "blocked"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "step": {
+            "enum": [
+              "parties_and_basis",
+              "application",
+              "review",
+              "export"
+            ],
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "state",
+          "allowed"
+        ],
+        "title": "StepGateResponse",
         "type": "object"
       },
       "UploadResponse": {
