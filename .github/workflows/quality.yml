@@ -1,0 +1,80 @@
+name: quality
+
+on:
+  pull_request:
+  push:
+    branches: [main, "codex/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_DB: case_filing_test
+          POSTGRES_USER: case_filing
+          POSTGRES_PASSWORD: test-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U case_filing -d case_filing_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      CI: "true"
+      CFA_TEST_POSTGRES_URL: postgresql+psycopg://case_filing:test-only-password@127.0.0.1:5432/case_filing_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.16.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.1"
+          enable-cache: true
+      - run: pnpm install --frozen-lockfile
+      - run: uv sync --project services/api --frozen
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test:web
+      - name: Backend unit, migration and PostgreSQL concurrency tests
+        working-directory: services/api
+        run: .venv/bin/python -m pytest --cov=app --cov-report=term-missing
+      - run: services/api/.venv/bin/python scripts/export_openapi.py packages/contracts/openapi.json
+      - run: pnpm exec openapi-typescript packages/contracts/openapi.json -o packages/contracts/src/generated.ts
+      - name: Verify generated contract has no drift
+        run: git diff --exit-code -- packages/contracts/openapi.json packages/contracts/src/generated.ts
+      - run: pnpm build
+      - name: Verify source artifact boundary
+        shell: pwsh
+        run: ./scripts/artifact-audit.ps1
+
+  container-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production images from denylisted context
+        run: |
+          docker build --file services/api/Dockerfile --tag case-filing-api:audit .
+          docker build --file apps/web/Dockerfile --tag case-filing-web:audit .
+      - name: Audit final image filesystems
+        run: bash scripts/image-artifact-audit.sh case-filing-api:audit case-filing-web:audit

@@ -7,7 +7,7 @@ export function makeStore() {
     reducer: { [caseApi.reducerPath]: caseApi.reducer },
     middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(caseApi.middleware),
     // 敏感案件字段不进入持久化层，Redux 仅保存当前内存中的 API cache。
-    devTools: process.env.NODE_ENV !== "production"
+    devTools: process.env.NEXT_PUBLIC_ENABLE_REDUX_DEVTOOLS === "true"
   });
 }
 

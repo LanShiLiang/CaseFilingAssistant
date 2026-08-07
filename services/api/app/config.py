@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     worker_lease_seconds: int = 60
     worker_max_attempts: int = 3
     worker_heartbeat_file: Path = Path("./.local/worker-heartbeat")
+    worker_heartbeat_max_age_seconds: float = 30.0
+    blob_orphan_grace_seconds: int = 3600
     allowed_origins: list[str] = Field(default_factory=lambda: ["http://127.0.0.1:3000"])
     template_version: str = "self_single_v1.0.0"
     rule_set_version: str = "national_baseline_v1.0.0"

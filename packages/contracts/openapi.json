@@ -1,6 +1,58 @@
 {
   "components": {
     "schemas": {
+      "AmountComputationV1": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmation_status": {
+            "enum": [
+              "pending",
+              "confirmed",
+              "invalidated"
+            ],
+            "title": "Confirmation Status",
+            "type": "string"
+          },
+          "formula_version": {
+            "const": "outstanding_amount_v1",
+            "default": "outstanding_amount_v1",
+            "title": "Formula Version",
+            "type": "string"
+          },
+          "input_revision": {
+            "minimum": 1.0,
+            "title": "Input Revision",
+            "type": "integer"
+          },
+          "judgment_amount": {
+            "title": "Judgment Amount",
+            "type": "string"
+          },
+          "paid_amount": {
+            "title": "Paid Amount",
+            "type": "string"
+          },
+          "result": {
+            "title": "Result",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "amount_computation_v1",
+            "default": "amount_computation_v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "input_revision",
+          "judgment_amount",
+          "paid_amount",
+          "result",
+          "confirmation_status"
+        ],
+        "title": "AmountComputationV1",
+        "type": "object"
+      },
       "Body_upload_document_route_api_v1_matters__matter_id__documents_post": {
         "properties": {
           "expected_revision": {
@@ -32,12 +84,10 @@
             "type": "boolean"
           },
           "docx": {
-            "default": true,
             "title": "Docx",
             "type": "boolean"
           },
           "generation": {
-            "default": true,
             "title": "Generation",
             "type": "boolean"
           },
@@ -53,12 +103,34 @@
             "default": true,
             "title": "Text Pdf",
             "type": "boolean"
+          },
+          "worker": {
+            "title": "Worker",
+            "type": "boolean"
+          },
+          "worker_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "worker_heartbeat_missing",
+                  "worker_heartbeat_stale"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worker Reason"
           }
         },
         "required": [
           "database",
           "storage",
-          "image_ocr"
+          "worker",
+          "docx",
+          "image_ocr",
+          "generation"
         ],
         "title": "CapabilityResponse",
         "type": "object"
@@ -70,6 +142,7 @@
             "type": "boolean"
           },
           "eligibility_version": {
+            "const": "self_single_v1.0.0",
             "default": "self_single_v1.0.0",
             "title": "Eligibility Version",
             "type": "string"
@@ -79,6 +152,44 @@
           "eligibility_confirmed"
         ],
         "title": "CreateMatterRequest",
+        "type": "object"
+      },
+      "ExportAttestationRequest": {
+        "properties": {
+          "attestation_version": {
+            "const": "export_attestation_v1",
+            "default": "export_attestation_v1",
+            "title": "Attestation Version",
+            "type": "string"
+          },
+          "critical_fields_reviewed": {
+            "const": true,
+            "title": "Critical Fields Reviewed",
+            "type": "boolean"
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "local_requirements_reviewed": {
+            "const": true,
+            "title": "Local Requirements Reviewed",
+            "type": "boolean"
+          },
+          "manual_review_understood": {
+            "const": true,
+            "title": "Manual Review Understood",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "critical_fields_reviewed",
+          "manual_review_understood",
+          "local_requirements_reviewed"
+        ],
+        "title": "ExportAttestationRequest",
         "type": "object"
       },
       "GenerationResponse": {
@@ -99,9 +210,32 @@
             ],
             "title": "Download Url"
           },
+          "export_attestation_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Export Attestation Version"
+          },
           "final_confirmed": {
             "title": "Final Confirmed",
             "type": "boolean"
+          },
+          "final_confirmed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Confirmed At"
           },
           "id": {
             "title": "Id",
@@ -138,6 +272,13 @@
             "title": "Sha256"
           },
           "status": {
+            "enum": [
+              "pending",
+              "processing",
+              "completed",
+              "superseded",
+              "failed"
+            ],
             "title": "Status",
             "type": "string"
           }
@@ -148,6 +289,8 @@
           "revision",
           "status",
           "final_confirmed",
+          "final_confirmed_at",
+          "export_attestation_version",
           "preview_url",
           "download_url",
           "sha256",
@@ -208,6 +351,10 @@
             "type": "string"
           },
           "kind": {
+            "enum": [
+              "parse_document",
+              "generate_package"
+            ],
             "title": "Kind",
             "type": "string"
           },
@@ -231,7 +378,18 @@
             "title": "Result",
             "type": "object"
           },
+          "retryable": {
+            "title": "Retryable",
+            "type": "boolean"
+          },
           "status": {
+            "enum": [
+              "pending",
+              "running",
+              "retry_scheduled",
+              "completed",
+              "failed_terminal"
+            ],
             "title": "Status",
             "type": "string"
           }
@@ -244,6 +402,7 @@
           "max_attempts",
           "progress",
           "error_code",
+          "retryable",
           "result"
         ],
         "title": "JobResponse",
@@ -251,6 +410,10 @@
       },
       "MatterDocumentResponse": {
         "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -265,10 +428,28 @@
             "type": "string"
           },
           "kind": {
+            "enum": [
+              "legal_basis",
+              "applicant_id_front",
+              "applicant_id_back",
+              "respondent_id_front",
+              "respondent_id_back",
+              "performance_evidence"
+            ],
             "title": "Kind",
             "type": "string"
           },
+          "parse_revision": {
+            "title": "Parse Revision",
+            "type": "integer"
+          },
           "parse_status": {
+            "enum": [
+              "pending",
+              "processing",
+              "completed",
+              "failed"
+            ],
             "title": "Parse Status",
             "type": "string"
           }
@@ -278,6 +459,8 @@
           "kind",
           "filename",
           "parse_status",
+          "active",
+          "parse_revision",
           "created_at"
         ],
         "title": "MatterDocumentResponse",
@@ -285,8 +468,23 @@
       },
       "MatterResponse": {
         "properties": {
+          "amount_computation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AmountComputationV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "confirmations": {
             "additionalProperties": {
+              "enum": [
+                "pending",
+                "confirmed",
+                "invalidated"
+              ],
               "type": "string"
             },
             "title": "Confirmations",
@@ -307,6 +505,11 @@
             },
             "title": "Documents",
             "type": "array"
+          },
+          "dossier_schema_version": {
+            "const": "dossier_v2",
+            "title": "Dossier Schema Version",
+            "type": "string"
           },
           "eligibility_confirmed": {
             "title": "Eligibility Confirmed",
@@ -353,18 +556,37 @@
             "title": "Revision",
             "type": "integer"
           },
+          "scope_signals": {
+            "items": {
+              "$ref": "#/components/schemas/ScopeSignalV1"
+            },
+            "title": "Scope Signals",
+            "type": "array"
+          },
           "sources": {
             "additionalProperties": {
               "items": {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/SourceReferenceResponse"
               },
               "type": "array"
             },
             "title": "Sources",
             "type": "object"
           },
+          "step_gates": {
+            "items": {
+              "$ref": "#/components/schemas/StepGateResponse"
+            },
+            "title": "Step Gates",
+            "type": "array"
+          },
           "title_state": {
+            "enum": [
+              "pending_upload",
+              "processing",
+              "pending_confirmation",
+              "case_number_ready"
+            ],
             "title": "Title State",
             "type": "string"
           },
@@ -385,6 +607,7 @@
             "title": "Validated Revision"
           },
           "workflow_profile": {
+            "const": "self_single_v1",
             "title": "Workflow Profile",
             "type": "string"
           }
@@ -395,12 +618,16 @@
           "eligibility_version",
           "eligibility_confirmed",
           "revision",
+          "dossier_schema_version",
           "title_state",
           "display_title",
           "facts",
           "confirmations",
           "sources",
+          "scope_signals",
+          "amount_computation",
           "documents",
+          "step_gates",
           "validated_revision",
           "generated_revision",
           "latest_generation_id",
@@ -433,6 +660,13 @@
             "title": "Confirm Fields",
             "type": "array"
           },
+          "dismissed_scope_signal_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dismissed Scope Signal Ids",
+            "type": "array"
+          },
           "expected_revision": {
             "minimum": 1.0,
             "title": "Expected Revision",
@@ -452,6 +686,169 @@
           "confirm_fields"
         ],
         "title": "SaveFactsRequest",
+        "type": "object"
+      },
+      "ScopeSignalV1": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": [
+              "unsupported_multiple_applicants",
+              "unsupported_multiple_respondents",
+              "unsupported_representative",
+              "unsupported_organization_party",
+              "unsupported_multiple_obligations",
+              "unsupported_complex_obligation"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "document_id": {
+            "title": "Document Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "snippet": {
+            "title": "Snippet",
+            "type": "string"
+          },
+          "status": {
+            "default": "open",
+            "enum": [
+              "open",
+              "dismissed_as_parse_error"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "document_id",
+          "snippet"
+        ],
+        "title": "ScopeSignalV1",
+        "type": "object"
+      },
+      "SourceReferenceResponse": {
+        "properties": {
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "document_id": {
+            "title": "Document Id",
+            "type": "string"
+          },
+          "extraction_method": {
+            "enum": [
+              "text",
+              "ocr",
+              "user",
+              "deterministic"
+            ],
+            "title": "Extraction Method",
+            "type": "string"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "parse_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parse Revision"
+          },
+          "snippet": {
+            "title": "Snippet",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document_id",
+          "page",
+          "snippet",
+          "extraction_method",
+          "confidence"
+        ],
+        "title": "SourceReferenceResponse",
+        "type": "object"
+      },
+      "StepGateResponse": {
+        "properties": {
+          "allowed": {
+            "title": "Allowed",
+            "type": "boolean"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "available",
+              "locked",
+              "complete",
+              "blocked"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "step": {
+            "enum": [
+              "parties_and_basis",
+              "application",
+              "review",
+              "export"
+            ],
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "state",
+          "allowed"
+        ],
+        "title": "StepGateResponse",
         "type": "object"
       },
       "UploadResponse": {
@@ -651,55 +1048,6 @@
         "summary": "Get Generation"
       }
     },
-    "/api/v1/generations/{generation_id}/confirm": {
-      "post": {
-        "operationId": "confirm_generation_api_v1_generations__generation_id__confirm_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "generation_id",
-            "required": true,
-            "schema": {
-              "title": "Generation Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RevisionRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GenerationResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Confirm Generation"
-      }
-    },
     "/api/v1/generations/{generation_id}/download": {
       "get": {
         "operationId": "download_generation_api_v1_generations__generation_id__download_get",
@@ -735,6 +1083,71 @@
           }
         },
         "summary": "Download Generation"
+      }
+    },
+    "/api/v1/generations/{generation_id}/export-attestation": {
+      "put": {
+        "operationId": "confirm_generation_api_v1_generations__generation_id__export_attestation_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "generation_id",
+            "required": true,
+            "schema": {
+              "title": "Generation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportAttestationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Generation"
       }
     },
     "/api/v1/generations/{generation_id}/preview": {
@@ -811,6 +1224,71 @@
           }
         },
         "summary": "Get Job"
+      }
+    },
+    "/api/v1/jobs/{job_id}/retry": {
+      "post": {
+        "operationId": "retry_job_api_v1_jobs__job_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Job"
       }
     },
     "/api/v1/matters": {
@@ -940,6 +1418,22 @@
               "title": "Matter Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
           }
         ],
         "requestBody": {
@@ -988,6 +1482,22 @@
             "schema": {
               "title": "Matter Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
             }
           }
         ],
@@ -1038,6 +1548,22 @@
               "title": "Matter Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
           }
         ],
         "requestBody": {
@@ -1086,6 +1612,22 @@
             "schema": {
               "title": "Matter Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
             }
           }
         ],

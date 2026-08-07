@@ -38,23 +38,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/generations/{generation_id}/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Confirm Generation */
-        post: operations["confirm_generation_api_v1_generations__generation_id__confirm_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/generations/{generation_id}/download": {
         parameters: {
             query?: never;
@@ -65,6 +48,23 @@ export interface paths {
         /** Download Generation */
         get: operations["download_generation_api_v1_generations__generation_id__download_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/generations/{generation_id}/export-attestation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Confirm Generation */
+        put: operations["confirm_generation_api_v1_generations__generation_id__export_attestation_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -100,6 +100,23 @@ export interface paths {
         get: operations["get_job_api_v1_jobs__job_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{job_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Job */
+        post: operations["retry_job_api_v1_jobs__job_id__retry_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -247,6 +264,34 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AmountComputationV1 */
+        AmountComputationV1: {
+            /**
+             * Confirmation Status
+             * @enum {string}
+             */
+            confirmation_status: "pending" | "confirmed" | "invalidated";
+            /**
+             * Formula Version
+             * @default outstanding_amount_v1
+             * @constant
+             */
+            formula_version: "outstanding_amount_v1";
+            /** Input Revision */
+            input_revision: number;
+            /** Judgment Amount */
+            judgment_amount: string;
+            /** Paid Amount */
+            paid_amount: string;
+            /** Result */
+            result: string;
+            /**
+             * Schema Version
+             * @default amount_computation_v1
+             * @constant
+             */
+            schema_version: "amount_computation_v1";
+        };
         /** Body_upload_document_route_api_v1_matters__matter_id__documents_post */
         Body_upload_document_route_api_v1_matters__matter_id__documents_post: {
             /** Expected Revision */
@@ -260,15 +305,9 @@ export interface components {
         CapabilityResponse: {
             /** Database */
             database: boolean;
-            /**
-             * Docx
-             * @default true
-             */
+            /** Docx */
             docx: boolean;
-            /**
-             * Generation
-             * @default true
-             */
+            /** Generation */
             generation: boolean;
             /** Image Ocr */
             image_ocr: boolean;
@@ -279,6 +318,10 @@ export interface components {
              * @default true
              */
             text_pdf: boolean;
+            /** Worker */
+            worker: boolean;
+            /** Worker Reason */
+            worker_reason?: ("worker_heartbeat_missing" | "worker_heartbeat_stale") | null;
         };
         /** CreateMatterRequest */
         CreateMatterRequest: {
@@ -287,8 +330,35 @@ export interface components {
             /**
              * Eligibility Version
              * @default self_single_v1.0.0
+             * @constant
              */
-            eligibility_version: string;
+            eligibility_version: "self_single_v1.0.0";
+        };
+        /** ExportAttestationRequest */
+        ExportAttestationRequest: {
+            /**
+             * Attestation Version
+             * @default export_attestation_v1
+             * @constant
+             */
+            attestation_version: "export_attestation_v1";
+            /**
+             * Critical Fields Reviewed
+             * @constant
+             */
+            critical_fields_reviewed: true;
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Local Requirements Reviewed
+             * @constant
+             */
+            local_requirements_reviewed: true;
+            /**
+             * Manual Review Understood
+             * @constant
+             */
+            manual_review_understood: true;
         };
         /** GenerationResponse */
         GenerationResponse: {
@@ -299,8 +369,12 @@ export interface components {
             created_at: string;
             /** Download Url */
             download_url: string | null;
+            /** Export Attestation Version */
+            export_attestation_version: string | null;
             /** Final Confirmed */
             final_confirmed: boolean;
+            /** Final Confirmed At */
+            final_confirmed_at: string | null;
             /** Id */
             id: string;
             /** Matter Id */
@@ -311,8 +385,11 @@ export interface components {
             revision: number;
             /** Sha256 */
             sha256: string | null;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "processing" | "completed" | "superseded" | "failed";
         };
         /** GenerationStartResponse */
         GenerationStartResponse: {
@@ -333,8 +410,11 @@ export interface components {
             error_code: string | null;
             /** Id */
             id: string;
-            /** Kind */
-            kind: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "parse_document" | "generate_package";
             /** Max Attempts */
             max_attempts: number;
             /** Progress */
@@ -343,11 +423,18 @@ export interface components {
             result: {
                 [key: string]: unknown;
             };
-            /** Status */
-            status: string;
+            /** Retryable */
+            retryable: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "retry_scheduled" | "completed" | "failed_terminal";
         };
         /** MatterDocumentResponse */
         MatterDocumentResponse: {
+            /** Active */
+            active: boolean;
             /**
              * Created At
              * Format: date-time
@@ -357,16 +444,25 @@ export interface components {
             filename: string;
             /** Id */
             id: string;
-            /** Kind */
-            kind: string;
-            /** Parse Status */
-            parse_status: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "legal_basis" | "applicant_id_front" | "applicant_id_back" | "respondent_id_front" | "respondent_id_back" | "performance_evidence";
+            /** Parse Revision */
+            parse_revision: number;
+            /**
+             * Parse Status
+             * @enum {string}
+             */
+            parse_status: "pending" | "processing" | "completed" | "failed";
         };
         /** MatterResponse */
         MatterResponse: {
+            amount_computation: components["schemas"]["AmountComputationV1"] | null;
             /** Confirmations */
             confirmations: {
-                [key: string]: string;
+                [key: string]: "pending" | "confirmed" | "invalidated";
             };
             /**
              * Created At
@@ -377,6 +473,11 @@ export interface components {
             display_title: string;
             /** Documents */
             documents: components["schemas"]["MatterDocumentResponse"][];
+            /**
+             * Dossier Schema Version
+             * @constant
+             */
+            dossier_schema_version: "dossier_v2";
             /** Eligibility Confirmed */
             eligibility_confirmed: boolean;
             /** Eligibility Version */
@@ -393,14 +494,19 @@ export interface components {
             latest_generation_id: string | null;
             /** Revision */
             revision: number;
+            /** Scope Signals */
+            scope_signals: components["schemas"]["ScopeSignalV1"][];
             /** Sources */
             sources: {
-                [key: string]: {
-                    [key: string]: unknown;
-                }[];
+                [key: string]: components["schemas"]["SourceReferenceResponse"][];
             };
-            /** Title State */
-            title_state: string;
+            /** Step Gates */
+            step_gates: components["schemas"]["StepGateResponse"][];
+            /**
+             * Title State
+             * @enum {string}
+             */
+            title_state: "pending_upload" | "processing" | "pending_confirmation" | "case_number_ready";
             /**
              * Updated At
              * Format: date-time
@@ -408,8 +514,11 @@ export interface components {
             updated_at: string;
             /** Validated Revision */
             validated_revision: number | null;
-            /** Workflow Profile */
-            workflow_profile: string;
+            /**
+             * Workflow Profile
+             * @constant
+             */
+            workflow_profile: "self_single_v1";
         };
         /** RevisionRequest */
         RevisionRequest: {
@@ -420,12 +529,71 @@ export interface components {
         SaveFactsRequest: {
             /** Confirm Fields */
             confirm_fields: string[];
+            /** Dismissed Scope Signal Ids */
+            dismissed_scope_signal_ids?: string[];
             /** Expected Revision */
             expected_revision: number;
             /** Fields */
             fields: {
                 [key: string]: string;
             };
+        };
+        /** ScopeSignalV1 */
+        ScopeSignalV1: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "unsupported_multiple_applicants" | "unsupported_multiple_respondents" | "unsupported_representative" | "unsupported_organization_party" | "unsupported_multiple_obligations" | "unsupported_complex_obligation";
+            /** Document Id */
+            document_id: string;
+            /** Id */
+            id: string;
+            /** Page */
+            page?: number | null;
+            /** Snippet */
+            snippet: string;
+            /**
+             * Status
+             * @default open
+             * @enum {string}
+             */
+            status: "open" | "dismissed_as_parse_error";
+        };
+        /** SourceReferenceResponse */
+        SourceReferenceResponse: {
+            /** Confidence */
+            confidence: number | null;
+            /** Document Id */
+            document_id: string;
+            /**
+             * Extraction Method
+             * @enum {string}
+             */
+            extraction_method: "text" | "ocr" | "user" | "deterministic";
+            /** Page */
+            page: number | null;
+            /** Parse Revision */
+            parse_revision?: number | null;
+            /** Snippet */
+            snippet: string;
+        };
+        /** StepGateResponse */
+        StepGateResponse: {
+            /** Allowed */
+            allowed: boolean;
+            /** Reasons */
+            reasons?: string[];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "available" | "locked" | "complete" | "blocked";
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "parties_and_basis" | "application" | "review" | "export";
         };
         /** UploadResponse */
         UploadResponse: {
@@ -533,41 +701,6 @@ export interface operations {
             };
         };
     };
-    confirm_generation_api_v1_generations__generation_id__confirm_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                generation_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RevisionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenerationResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     download_generation_api_v1_generations__generation_id__download_get: {
         parameters: {
             query?: never;
@@ -586,6 +719,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_generation_api_v1_generations__generation_id__export_attestation_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                generation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportAttestationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -640,6 +810,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_job_api_v1_jobs__job_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevisionRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -750,7 +957,9 @@ export interface operations {
     upload_document_route_api_v1_matters__matter_id__documents_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
             path: {
                 matter_id: string;
             };
@@ -785,7 +994,9 @@ export interface operations {
     save_facts_route_api_v1_matters__matter_id__facts_put: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
             path: {
                 matter_id: string;
             };
@@ -820,7 +1031,9 @@ export interface operations {
     start_generation_api_v1_matters__matter_id__generations_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
             path: {
                 matter_id: string;
             };
@@ -855,7 +1068,9 @@ export interface operations {
     validate_route_api_v1_matters__matter_id__validate_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
             path: {
                 matter_id: string;
             };
