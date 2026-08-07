@@ -84,10 +84,17 @@ def validate_matter(matter: Matter) -> list[ValidationIssue]:
     for required_kind, label in (
         ("applicant_id_front", "申请执行人身份证人像面"),
         ("applicant_id_back", "申请执行人身份证国徽面"),
+        ("respondent_id_front", "被执行人身份证人像面"),
+        ("respondent_id_back", "被执行人身份证国徽面"),
     ):
         if required_kind not in kinds:
+            issue_code = (
+                "applicant_identity_missing"
+                if required_kind.startswith("applicant_")
+                else "respondent_identity_missing"
+            )
             issues.append(
-                ValidationIssue("applicant_identity_missing", "blocking", f"{label}尚未上传。")
+                ValidationIssue(issue_code, "blocking", f"{label}尚未上传。")
             )
 
     issues.extend(_required_issues(dossier, STEP_ONE_FIELDS))

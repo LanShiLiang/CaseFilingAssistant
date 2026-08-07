@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
@@ -37,6 +38,18 @@ CASE_NUMBER_RE = re.compile(
 COURT_RE = re.compile(r"[\u4e00-\u9fff]{2,40}人民法院")
 DATE_RE = re.compile(r"(20\d{2})年(\d{1,2})月(\d{1,2})日")
 AMOUNT_RE = re.compile(r"人民币\s*([0-9][0-9,]*(?:\.\d{1,2})?)\s*元")
+PARTY_RE = re.compile(
+    r"(?P<label>申请执行人|申请人|原告|被执行人|被申请人|被告)"
+    r"\s*[：:]\s*(?P<name>[\u4e00-\u9fff·]{2,20})"
+)
+IDENTITY_NUMBER_RE = re.compile(
+    r"(?:公民身份号码|公民身份号|身份证号码|身份证号|身份号码)"
+    r"\s*[：:]?\s*(?P<number>(?:\d\s*){17}[0-9Xx])"
+)
+APPLICANT_LABELS = frozenset({"申请执行人", "申请人", "原告"})
+RESPONDENT_LABELS = frozenset({"被执行人", "被申请人", "被告"})
+IDENTITY_CHECKSUM_WEIGHTS = (7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2)
+IDENTITY_CHECKSUM_CODES = "10X98765432"
 
 
 def image_ocr_available() -> bool:
@@ -178,17 +191,61 @@ def _first_match(
     return None
 
 
-def _named_value(label: str, pages: list[ExtractedPage]) -> tuple[str, ExtractedPage] | None:
-    pattern = re.compile(rf"{re.escape(label)}\s*[：:]\s*([\u4e00-\u9fff·]{{2,20}})")
+def _valid_identity_number(value: str) -> bool:
+    normalized = value.upper()
+    if not re.fullmatch(r"\d{17}[0-9X]", normalized):
+        return False
+    try:
+        datetime.strptime(normalized[6:14], "%Y%m%d")
+    except ValueError:
+        return False
+    checksum_index = sum(
+        int(digit) * weight
+        for digit, weight in zip(normalized[:17], IDENTITY_CHECKSUM_WEIGHTS, strict=True)
+    ) % 11
+    return normalized[-1] == IDENTITY_CHECKSUM_CODES[checksum_index]
+
+
+def _party_fields(
+    pages: list[ExtractedPage],
+) -> dict[str, tuple[str, ExtractedPage, str]]:
+    """从每个当事人段落提取角色绑定的姓名和身份证号，禁止跨角色猜测。"""
+
+    fields: dict[str, tuple[str, ExtractedPage, str]] = {}
     for page in pages:
-        match = pattern.search(page.text)
-        if match:
-            return match.group(1).strip(), page
-    return None
+        matches = list(PARTY_RE.finditer(page.text))
+        for index, match in enumerate(matches):
+            is_applicant = match.group("label") in APPLICANT_LABELS
+            prefix = "applicant" if is_applicant else "respondent"
+            name_field = f"{prefix}_name"
+            fields.setdefault(name_field, (match.group("name").strip(), page, match.group("name")))
+
+            # 身份证号必须位于当前角色起点与下一个角色起点之间，避免把被告号码写给原告。
+            block_end = matches[index + 1].start() if index + 1 < len(matches) else len(page.text)
+            party_block = page.text[match.end():block_end]
+            compact_block = "".join(party_block.split())
+            identity_match = IDENTITY_NUMBER_RE.search(compact_block)
+            if identity_match is None:
+                continue
+            raw_number = identity_match.group("number")
+            identity_number = "".join(raw_number.split()).upper()
+            if _valid_identity_number(identity_number):
+                source_value = (
+                    identity_number if identity_number in page.text else match.group("name")
+                )
+                fields.setdefault(f"{prefix}_id", (identity_number, page, source_value))
+    return fields
 
 
-def _source(document_id: str, page: ExtractedPage, value: str) -> dict[str, Any]:
-    position = page.text.find(value)
+def _source(
+    document_id: str,
+    page: ExtractedPage,
+    value: str,
+    source_value: str | None = None,
+) -> dict[str, Any]:
+    position = page.text.find(source_value or value)
+    if position < 0:
+        position = 0
     start = max(0, position - 24)
     end = min(len(page.text), position + len(value) + 48)
     return {
@@ -276,8 +333,6 @@ def parse_legal_basis(
     mappings: list[tuple[str, tuple[str, ExtractedPage] | None]] = [
         ("case_number", _first_match(CASE_NUMBER_RE, pages)),
         ("rendering_court", _first_match(COURT_RE, pages)),
-        ("applicant_name", _named_value("申请执行人", pages) or _named_value("申请人", pages)),
-        ("respondent_name", _named_value("被执行人", pages) or _named_value("被申请人", pages)),
     ]
     for field_name, candidate in mappings:
         if candidate:
@@ -286,6 +341,10 @@ def parse_legal_basis(
                 value = "".join(value.split())
             facts[field_name] = value
             sources[field_name] = [_source(document_id, page, value)]
+
+    for field_name, (value, page, source_value) in _party_fields(pages).items():
+        facts[field_name] = value
+        sources[field_name] = [_source(document_id, page, value, source_value)]
 
     date_candidate = _first_match(DATE_RE, pages)
     if date_candidate:

@@ -26,7 +26,9 @@ export function UploadControl({
     <label className={`upload-control ${document ? "upload-control--done" : ""}`}>
       <input
         aria-label={`上传${label}`}
+        aria-required={!optional}
         type="file"
+        required={!optional}
         accept={accept.includes("PDF") ? ".pdf,.docx,.jpg,.jpeg,.png" : ".jpg,.jpeg,.png"}
         disabled={disabled}
         onChange={(event) => {
@@ -36,7 +38,10 @@ export function UploadControl({
         }}
       />
       {document ? <CheckCircle2 size={22} /> : <Upload size={22} />}
-      <span><strong>{label}</strong><small>{document ? `${document.filename} · ${document.parse_status}` : `${accept}${optional ? " · 选填" : ""}`}</small></span>
+      <span className="upload-copy">
+        <strong>{label}{optional ? null : <em>必传</em>}</strong>
+        <small>{document ? `${document.filename} · ${document.parse_status}` : `${accept} · ${optional ? "选填" : "必传"}`}</small>
+      </span>
     </label>
   );
 }

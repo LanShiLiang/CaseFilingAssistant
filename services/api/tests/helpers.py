@@ -5,16 +5,23 @@ import io
 from docx import Document as WordDocument
 from PIL import Image, ImageDraw
 
+SYNTHETIC_APPLICANT_ID = "999999199001010016"
+SYNTHETIC_RESPONDENT_ID = "999999199202020026"
+
 
 def legal_basis_docx() -> bytes:
-    """生成完全虚构的判决书测试件，避免仓库保存任何案件或身份材料。"""
+    """生成完全虚构的调解书测试件，999999 行政区划明确表示非真实证件号。"""
 
     document = WordDocument()
     document.add_paragraph("北京市朝阳区人民法院")
-    document.add_paragraph("民事判决书")
+    document.add_paragraph("民事调解书")
     document.add_paragraph("（2026）京0105民初123号")
-    document.add_paragraph("申请执行人：测试甲")
-    document.add_paragraph("被执行人：测试乙")
+    document.add_paragraph(
+        f"原告：测试原告甲，男，1990年1月1日出生，公民身份号码：{SYNTHETIC_APPLICANT_ID}。"
+    )
+    document.add_paragraph(
+        f"被告：测试被告乙，女，1992年2月2日出生，身份证号：{SYNTHETIC_RESPONDENT_ID}。"
+    )
     document.add_paragraph("被执行人应支付人民币 10000.00 元。")
     document.add_paragraph("二〇二六年八月六日")
     stream = io.BytesIO()

@@ -217,7 +217,13 @@ def _step_gates(matter: Matter, dossier: DossierV2) -> list[StepGateResponse]:
 
     missing_materials = [
         kind
-        for kind in ("legal_basis", "applicant_id_front", "applicant_id_back")
+        for kind in (
+            "legal_basis",
+            "applicant_id_front",
+            "applicant_id_back",
+            "respondent_id_front",
+            "respondent_id_back",
+        )
         if kind not in active_kinds
     ]
     step_one_complete = not missing_materials and confirmed(step_one_fields)
@@ -606,7 +612,7 @@ def save_confirmed_facts(
             amount_confirmed = all(
                 next_confirmations.get(field) == "confirmed"
                 for field in ("judgment_amount", "paid_amount")
-            ) and "outstanding_amount" in confirm_fields
+            )
             next_confirmations["outstanding_amount"] = (
                 "confirmed" if amount_confirmed else "pending"
             )

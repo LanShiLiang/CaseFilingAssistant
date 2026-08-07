@@ -9,14 +9,15 @@ describe("StepNavigation", () => {
     render(
       <StepNavigation
         activeStep={1}
-        allowedSteps={[true, false, false, false]}
+        allowedSteps={[true, false, false]}
         onNavigate={navigate}
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /当事人与依据/ }));
+    fireEvent.click(screen.getByRole("button", { name: /资料填写/ }));
     expect(navigate).toHaveBeenCalledWith(1);
-    expect(screen.getByRole("button", { name: /申请内容/ })).toBeDisabled();
+    expect(screen.getByText("步骤 1 / 3")).toBeVisible();
+    expect(screen.getByRole("button", { name: /检查与预览/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /导出/ })).toBeDisabled();
   });
 });

@@ -248,8 +248,7 @@ def build_material_list_docx(context: GenerationContext) -> bytes:
         ("1", "强制执行申请书", "系统生成，打印前需人工复核并签名"),
         ("2", context.facts["document_type"], "执行依据，请按目标法院要求准备份数"),
         ("3", "申请执行人身份证明", "身份证正反面复印件；必要时核对原件要求"),
-        ("4", "履行情况材料", "如存在已履行金额，附付款或收款记录"),
-        ("5", "收款账户信息", "如目标法院要求，另行填写并人工确认"),
+        ("4", "收款账户信息", "如目标法院要求，另行填写并人工确认"),
     ]
     table = document.add_table(rows=1, cols=3)
     table.style = "Table Grid"

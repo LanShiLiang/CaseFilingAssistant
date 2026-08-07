@@ -6,31 +6,6 @@ export type PendingFormEdits = {
   editedFields: string[];
 };
 
-export const STEP_ONE_FIELDS = [
-  "document_type",
-  "case_number",
-  "rendering_court",
-  "applicant_name",
-  "applicant_id",
-  "respondent_name"
-] as const;
-
-export const STEP_TWO_FIELDS = [
-  "judgment_amount",
-  "paid_amount",
-  "outstanding_amount",
-  "request_text",
-  "filing_court",
-  "service_address"
-] as const;
-
-export function calculateOutstanding(judgment: string, paid: string): string {
-  const judgmentValue = Number(judgment);
-  const paidValue = Number(paid);
-  if (!Number.isFinite(judgmentValue) || !Number.isFinite(paidValue)) return "";
-  return Math.max(0, judgmentValue - paidValue).toFixed(2);
-}
-
 export function mergePendingField(
   current: PendingFormEdits | null,
   matterId: string,
@@ -74,14 +49,4 @@ export function parseApiError(error: unknown): string {
     }
   }
   return "操作失败，请稍后重试。";
-}
-
-export function formatMoney(value: string): string {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return "¥0.00";
-  return new Intl.NumberFormat("zh-CN", {
-    style: "currency",
-    currency: "CNY",
-    minimumFractionDigits: 2
-  }).format(numeric);
 }

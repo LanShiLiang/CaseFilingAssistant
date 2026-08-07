@@ -2,20 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyPendingEdits,
-  calculateOutstanding,
-  formatMoney,
   mergePendingField,
   parseApiError
 } from "./domain";
 
 describe("domain helpers", () => {
-  it("计算尚未履行金额的页面预估", () => {
-    expect(calculateOutstanding("120000", "20000")).toBe("100000.00");
-    expect(calculateOutstanding("invalid", "0")).toBe("");
-  });
-
-  it("稳定显示金额与协议错误", () => {
-    expect(formatMoney("100000")).toContain("100,000.00");
+  it("稳定显示协议错误", () => {
     expect(parseApiError({ data: { error: { message: "版本冲突" } } })).toBe("版本冲突");
     expect(parseApiError(null)).toBe("操作失败，请稍后重试。");
   });

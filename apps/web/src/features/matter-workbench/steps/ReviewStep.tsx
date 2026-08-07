@@ -35,7 +35,7 @@ export function ReviewStep({
   return (
     <div className="step-page">
       <StepHeading
-        step={3}
+        step={2}
         title="检查与预览"
         description="所有阻断项必须修复；警告和提示会保留供人工复核。"
         icon={<ShieldAlert size={30} />}
@@ -46,12 +46,12 @@ export function ReviewStep({
       </section>
 
       <section className="panel">
-        <div className="panel-title-row"><div><h2>生成强制执行申请书</h2><p className="muted">只读取当前 revision 冻结的已确认字段。</p></div><Button variant="primary" disabled={!validation || validation.blocking_count > 0 || generationPending || generationBusy} onClick={() => void onGenerate()}>{generationBusy ? `生成中 ${job?.progress ?? 0}%` : "生成材料包"}</Button></div>
+        <div className="panel-title-row"><div><h2>生成强制执行申请书</h2><p className="muted">只读取当前 revision 冻结的已确认字段。</p></div><Button variant="primary" disabled={!validation || validation.blocking_count > 0 || generationPending || generationBusy} onClick={() => void onGenerate()}>{generationBusy ? `生成中 ${job?.progress ?? 0}%` : "生成并预览申请书"}</Button></div>
         {generation?.status === "completed" && generation.preview_url ? <iframe className="pdf-preview" title="强制执行申请书预览" src={generation.preview_url} /> : <div className="preview-placeholder">{generation?.status === "failed" ? "生成失败，请根据错误提示重试。" : "通过检查并生成后显示 PDF 预览。"}</div>}
         {job?.retryable ? <Button disabled={retryPending} onClick={() => void onRetry()}>{retryPending ? "正在安排重试…" : "重试当前任务"}</Button> : null}
       </section>
 
-      <div className="page-actions"><Button onClick={onBack}>返回申请内容</Button><Button variant="primary" disabled={generation?.status !== "completed"} onClick={onContinue}>预览完成，进入导出</Button></div>
+      <div className="page-actions"><Button onClick={onBack}>返回资料填写</Button><Button variant="primary" disabled={generation?.status !== "completed"} onClick={onContinue}>预览完成，进入导出</Button></div>
     </div>
   );
 }

@@ -6,11 +6,8 @@ import type { DocumentKind, ValidationResult } from "@case-filing/contracts";
 
 import {
   applyPendingEdits,
-  calculateOutstanding,
   mergePendingField,
-  parseApiError,
-  STEP_ONE_FIELDS,
-  STEP_TWO_FIELDS
+  parseApiError
 } from "@/lib/domain";
 import {
   useConfirmGenerationMutation,
@@ -24,7 +21,12 @@ import {
   useValidateMatterMutation
 } from "@/store/caseApi";
 
-import type { ExportCheck, ExportCheckState, FormState } from "./types";
+import type { ExportCheck, ExportCheckState, WorkbenchOperation } from "./types";
+import {
+  blockingIssuesToStepOneBlockers,
+  collectStepOneBlockers,
+  STEP_ONE_SUBMISSION_FIELDS
+} from "./stepOneRequirements";
 import { useScopeSignalReviewState } from "./useScopeSignalReviewState";
 import { WORKFLOW_STEPS } from "./workflow";
 
@@ -43,6 +45,7 @@ export function useMatterWorkbenchController(matterId: string) {
   const [pendingEdits, setPendingEdits] = useState<ReturnType<typeof mergePendingField> | null>(null);
   const [error, setError] = useState("");
   const [validation, setValidation] = useState<ValidationResult | null>(null);
+  const [operation, setOperation] = useState<WorkbenchOperation | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [generationId, setGenerationId] = useState<string | null>(null);
   const [exportChecks, setExportChecks] = useState<ExportCheckState>({
@@ -84,7 +87,10 @@ export function useMatterWorkbenchController(matterId: string) {
           generation && ["completed", "failed", "superseded"].includes(generation.status)
         );
       if (generationTerminal) {
-        const timer = window.setTimeout(() => setJobId(null), 0);
+        const timer = window.setTimeout(() => {
+          setJobId(null);
+          setOperation((current) => current?.kind === "preview" ? null : current);
+        }, 0);
         return () => window.clearTimeout(timer);
       }
     }
@@ -105,8 +111,8 @@ export function useMatterWorkbenchController(matterId: string) {
     exportChecks.local
   );
 
-  const gates = WORKFLOW_STEPS.map(({ key }) =>
-    matter?.step_gates.find((gate) => gate.step === key)
+  const gates = WORKFLOW_STEPS.map(({ gateKey }) =>
+    matter?.step_gates.find((gate) => gate.step === gateKey)
   );
   const allowedSteps = gates.map((gate, index) => index === 0 || Boolean(gate?.allowed));
   const fallbackStep = suggestedStep(allowedSteps);
@@ -117,11 +123,6 @@ export function useMatterWorkbenchController(matterId: string) {
   const fields = matter
     ? applyPendingEdits(matter.facts, pendingEdits, matter.id)
     : {};
-  const outstanding = calculateOutstanding(
-    fields.judgment_amount ?? "",
-    fields.paid_amount ?? ""
-  );
-
   function navigate(step: number) {
     if (allowedSteps[step - 1]) setRequestedStep(step);
   }
@@ -153,54 +154,6 @@ export function useMatterWorkbenchController(matterId: string) {
     }
   }
 
-  async function saveFieldSet({
-    scope,
-    names,
-    values,
-    includeMissing,
-    dismissedScopeSignalIds,
-    nextStep,
-    resetValidation = false
-  }: {
-    scope: "save-step-one" | "save-step-two";
-    names: readonly string[];
-    values: FormState;
-    includeMissing: boolean;
-    dismissedScopeSignalIds: readonly string[];
-    nextStep: number;
-    resetValidation?: boolean;
-  }) {
-    if (!matter) return;
-    const payload = Object.fromEntries(
-      names
-        .filter((name) => includeMissing || values[name] !== undefined)
-        .map((name) => [name, values[name] ?? ""])
-    );
-    const confirmedFields = names.filter((name) => Boolean(payload[name]?.trim()));
-    await runMutation(
-      () =>
-        saveFacts({
-          matterId,
-          expected_revision: matter.revision,
-          fields: payload,
-          confirm_fields: confirmedFields,
-          dismissed_scope_signal_ids: [...dismissedScopeSignalIds],
-          idempotencyKey: idempotencyKey(scope, {
-            matterId,
-            revision: matter.revision,
-            payload,
-            confirmed: confirmedFields,
-            dismissed: dismissedScopeSignalIds
-          })
-        }).unwrap(),
-      () => {
-        setPendingEdits(null);
-        if (resetValidation) setValidation(null);
-        setRequestedStep(nextStep);
-      }
-    );
-  }
-
   async function handleUpload(kind: DocumentKind, file: File) {
     if (!matter) return;
     await runMutation(
@@ -229,30 +182,74 @@ export function useMatterWorkbenchController(matterId: string) {
   }
 
   async function saveStepOne() {
-    if (!matter) return;
-    const names = [...STEP_ONE_FIELDS, "document_date", "applicant_identity_address", "respondent_id"];
-    await saveFieldSet({
-      scope: "save-step-one",
-      names,
-      values: fields,
-      includeMissing: false,
-      dismissedScopeSignalIds: scopeReview.dismissedScopeSignalIds,
-      nextStep: 2
-    });
+    if (!matter || operation) return;
+    const blockers = collectStepOneBlockers(matter, fields);
+    if (blockers.length) {
+      setError("");
+      setOperation({ kind: "blocked", blockers });
+      return;
+    }
+
+    setError("");
+    setOperation({ kind: "save", phase: "collecting" });
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+
+    const values: Record<string, string> = {
+      ...fields,
+      paid_amount: fields.paid_amount?.trim() || "0.00"
+    };
+    const names = [...new Set(STEP_ONE_SUBMISSION_FIELDS)];
+    const payload = Object.fromEntries(names.map((name) => [name, values[name] ?? ""]));
+    const confirmedFields = names.filter((name) => Boolean(payload[name]?.trim()));
+    const dismissedScopeSignalIds = scopeReview.dismissedScopeSignalIds;
+
+    setOperation({ kind: "save", phase: "saving" });
+    try {
+      const savedMatter = await saveFacts({
+        matterId,
+        expected_revision: matter.revision,
+        fields: payload,
+        confirm_fields: confirmedFields,
+        dismissed_scope_signal_ids: [...dismissedScopeSignalIds],
+        idempotencyKey: idempotencyKey("save-details", {
+          matterId,
+          revision: matter.revision,
+          payload,
+          confirmed: confirmedFields,
+          dismissed: dismissedScopeSignalIds
+        })
+      }).unwrap();
+
+      // 保存成功才清空 dirty 字段；检查必须使用保存响应返回的新 revision。
+      setPendingEdits(null);
+      setValidation(null);
+      setOperation({ kind: "save", phase: "validating" });
+      const result = await validateMatter({
+        matterId,
+        expected_revision: savedMatter.revision,
+        idempotencyKey: idempotencyKey("validate-after-save", {
+          matterId,
+          revision: savedMatter.revision
+        })
+      }).unwrap();
+      setValidation(result);
+      await refetch();
+      const validationBlockers = blockingIssuesToStepOneBlockers(result.issues);
+      if (validationBlockers.length) {
+        setOperation({ kind: "blocked", blockers: validationBlockers });
+        return;
+      }
+      setRequestedStep(2);
+      setOperation(null);
+    } catch (reason) {
+      setError(parseApiError(reason));
+      await refetch();
+      setOperation(null);
+    }
   }
 
-  async function saveStepTwo() {
-    const nextFields: FormState = { ...fields, outstanding_amount: outstanding };
-    const names = [...STEP_TWO_FIELDS, "phone", "bank_account", "property_clues"];
-    await saveFieldSet({
-      scope: "save-step-two",
-      names,
-      values: nextFields,
-      includeMissing: true,
-      dismissedScopeSignalIds: [],
-      nextStep: 3,
-      resetValidation: true
-    });
+  function dismissOperation() {
+    setOperation((current) => current?.kind === "blocked" ? null : current);
   }
 
   async function runValidation() {
@@ -275,23 +272,26 @@ export function useMatterWorkbenchController(matterId: string) {
   }
 
   async function generate() {
-    if (!matter) return;
-    await runMutation(
-      () =>
-        startGeneration({
+    if (!matter || operation) return;
+    setError("");
+    setOperation({ kind: "preview", phase: "starting" });
+    try {
+      const result = await startGeneration({
+        matterId,
+        expected_revision: matter.revision,
+        idempotencyKey: idempotencyKey("generate", {
           matterId,
-          expected_revision: matter.revision,
-          idempotencyKey: idempotencyKey("generate", {
-            matterId,
-            revision: matter.revision
-          })
-        }).unwrap(),
-      async (result) => {
-        setGenerationId(result.generation.id);
-        setJobId(result.job_id);
-        await refetch();
-      }
-    );
+          revision: matter.revision
+        })
+      }).unwrap();
+      setGenerationId(result.generation.id);
+      setJobId(result.job_id);
+      setOperation({ kind: "preview", phase: "running" });
+      await refetch();
+    } catch (reason) {
+      setError(parseApiError(reason));
+      setOperation(null);
+    }
   }
 
   async function confirmAndUnlock() {
@@ -340,9 +340,9 @@ export function useMatterWorkbenchController(matterId: string) {
     activeStep,
     allowedSteps,
     fields,
-    outstanding,
     error,
     validation,
+    operation,
     job,
     generation,
     finalChecked,
@@ -363,7 +363,7 @@ export function useMatterWorkbenchController(matterId: string) {
     setScopeSignalDismissed: scopeReview.setScopeSignalDismissed,
     handleUpload,
     saveStepOne,
-    saveStepTwo,
+    dismissOperation,
     runValidation,
     generate,
     confirmAndUnlock,

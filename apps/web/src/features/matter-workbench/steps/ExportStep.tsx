@@ -32,7 +32,7 @@ export function ExportStep({
   return (
     <div className="step-page">
       <StepHeading
-        step={4}
+        step={3}
         title="导出强制执行申请材料"
         description="最终声明不会改变数据版本，只解锁同一生成记录的下载。"
         icon={<Download size={30} />}

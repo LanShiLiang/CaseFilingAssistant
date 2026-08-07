@@ -3,6 +3,7 @@ import { FileSearch, UserRound } from "lucide-react";
 import { Button } from "@case-filing/ui";
 
 import { MatterField, useMatterForm } from "../MatterForm";
+import { ApplicationDetails } from "../components/ApplicationDetails";
 import { StepHeading } from "../components/StepHeading";
 import { UploadControl } from "../components/UploadControl";
 import type { UploadHandler } from "../types";
@@ -28,8 +29,8 @@ export function PartiesAndBasisStep(props: PartiesAndBasisStepProps) {
     <div className="step-page">
       <StepHeading
         step={1}
-        title="当事人与执行依据"
-        description="上传后先得到候选值；保存本步骤表示已核对并确认当前非空字段。"
+        title="当事人、执行依据与申请内容"
+        description="在同一页面核对材料候选并补充申请信息；保存后系统会使用最新数据版本运行检查。"
         icon={<FileSearch size={30} />}
       />
       <section className="panel">
@@ -59,8 +60,8 @@ export function PartiesAndBasisStep(props: PartiesAndBasisStepProps) {
       <section className="panel">
         <h2><UserRound size={19} /> 被执行人</h2>
         <div className="upload-grid">
-          <UploadControl kind="respondent_id_front" label="身份证人像面" accept="JPG、PNG" matter={matter} onUpload={onUpload} optional disabled={busy} />
-          <UploadControl kind="respondent_id_back" label="身份证国徽面" accept="JPG、PNG" matter={matter} onUpload={onUpload} optional disabled={busy} />
+          <UploadControl kind="respondent_id_front" label="身份证人像面" accept="JPG、PNG" matter={matter} onUpload={onUpload} disabled={busy} />
+          <UploadControl kind="respondent_id_back" label="身份证国徽面" accept="JPG、PNG" matter={matter} onUpload={onUpload} disabled={busy} />
         </div>
         <div className="field-grid">
           <MatterField label="姓名" name="respondent_name" required />
@@ -90,7 +91,14 @@ export function PartiesAndBasisStep(props: PartiesAndBasisStepProps) {
         </section>
       ) : null}
 
-      <div className="page-actions"><span>保存前请核对每个字段和材料来源。</span><Button variant="primary" disabled={busy} onClick={() => void onSave()}>保存并提取申请内容</Button></div>
+      <ApplicationDetails />
+
+      <div className="page-actions">
+        <span>保存前请核对每个字段和材料来源；保存完成后将自动运行检查。</span>
+        <Button variant="primary" disabled={busy} onClick={() => void onSave()}>
+          保存并进入检查与预览
+        </Button>
+      </div>
     </div>
   );
 }

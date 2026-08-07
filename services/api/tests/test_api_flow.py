@@ -10,7 +10,12 @@ from pypdf import PdfReader
 from app.models import Generation
 
 from .conftest import ApiHarness
-from .helpers import legal_basis_docx, synthetic_identity_png
+from .helpers import (
+    SYNTHETIC_APPLICANT_ID,
+    SYNTHETIC_RESPONDENT_ID,
+    legal_basis_docx,
+    synthetic_identity_png,
+)
 
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
@@ -65,6 +70,12 @@ def test_full_application_generation_flow(api_harness: ApiHarness) -> None:
     assert matter["revision"] == legal["revision"]
     assert matter["title_state"] == "pending_confirmation"
     assert matter["facts"]["judgment_amount"] == "10000.00"
+    assert matter["facts"]["applicant_name"] == "测试原告甲"
+    assert matter["facts"]["applicant_id"] == SYNTHETIC_APPLICANT_ID
+    assert matter["facts"]["respondent_name"] == "测试被告乙"
+    assert matter["facts"]["respondent_id"] == SYNTHETIC_RESPONDENT_ID
+    assert matter["confirmations"]["applicant_id"] == "pending"
+    assert matter["sources"]["respondent_id"][0]["document_id"] == legal["document"]["id"]
 
     front = upload(
         api_harness,
@@ -86,21 +97,41 @@ def test_full_application_generation_flow(api_harness: ApiHarness) -> None:
         synthetic_identity_png("BACK"),
     )
     api_harness.run_next_job()
+    respondent_front = upload(
+        api_harness,
+        matter_id,
+        back["revision"],
+        "respondent_id_front",
+        "被执行人身份证人像面_测试.png",
+        "image/png",
+        synthetic_identity_png("RESPONDENT FRONT"),
+    )
+    api_harness.run_next_job()
+    respondent_back = upload(
+        api_harness,
+        matter_id,
+        respondent_front["revision"],
+        "respondent_id_back",
+        "被执行人身份证国徽面_测试.png",
+        "image/png",
+        synthetic_identity_png("RESPONDENT BACK"),
+    )
+    api_harness.run_next_job()
 
     step_one = {
-        "document_type": "民事判决书",
+        "document_type": "民事调解书",
         "case_number": "（2026）京0105民初123号",
         "document_date": "2026-08-06",
         "rendering_court": "北京市朝阳区人民法院",
-        "applicant_name": "测试甲",
-        "applicant_id": "TEST-ID-APPLICANT",
-        "respondent_name": "测试乙",
-        "respondent_id": "TEST-ID-RESPONDENT",
+        "applicant_name": "测试原告甲",
+        "applicant_id": SYNTHETIC_APPLICANT_ID,
+        "respondent_name": "测试被告乙",
+        "respondent_id": SYNTHETIC_RESPONDENT_ID,
     }
     response = api_harness.client.put(
         f"/api/v1/matters/{matter_id}/facts",
         json={
-            "expected_revision": back["revision"],
+            "expected_revision": respondent_back["revision"],
             "fields": step_one,
             "confirm_fields": list(step_one),
         },

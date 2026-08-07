@@ -28,6 +28,18 @@ def complete_matter(**overrides):
             SimpleNamespace(id="basis", kind="legal_basis", active=True, parse_revision=1),
             SimpleNamespace(id="front", kind="applicant_id_front", active=True, parse_revision=2),
             SimpleNamespace(id="back", kind="applicant_id_back", active=True, parse_revision=3),
+            SimpleNamespace(
+                id="respondent-front",
+                kind="respondent_id_front",
+                active=True,
+                parse_revision=4,
+            ),
+            SimpleNamespace(
+                id="respondent-back",
+                kind="respondent_id_back",
+                active=True,
+                parse_revision=5,
+            ),
         ],
         "facts": facts,
         "confirmations": {key: "confirmed" for key in facts},
@@ -90,3 +102,21 @@ def test_open_scope_signal_is_blocking() -> None:
     issues = validate_matter(matter)
 
     assert any(issue.code == "unsupported_organization_party" for issue in issues)
+
+
+def test_respondent_identity_images_are_blocking_materials() -> None:
+    matter = complete_matter(
+        documents=[
+            document
+            for document in complete_matter().documents
+            if not document.kind.startswith("respondent_id_")
+        ]
+    )
+
+    issues = validate_matter(matter)
+
+    missing = [issue for issue in issues if issue.code == "respondent_identity_missing"]
+    assert {issue.message for issue in missing} == {
+        "被执行人身份证人像面尚未上传。",
+        "被执行人身份证国徽面尚未上传。",
+    }
