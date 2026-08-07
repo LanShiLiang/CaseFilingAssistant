@@ -61,7 +61,7 @@ def test_complete_matter_has_no_blocking_issue() -> None:
     issues = validate_matter(complete_matter())
 
     assert not [issue for issue in issues if issue.severity == "blocking"]
-    assert any(issue.code == "draft_only" for issue in issues)
+    assert any(issue.code == "manual_review_required" for issue in issues)
 
 
 def test_amount_mismatch_is_blocking() -> None:

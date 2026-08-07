@@ -1,8 +1,9 @@
 import type { ApiErrorBody } from "@case-filing/contracts";
 
-export type FormDraft = {
-  revision: number;
-  fields: Record<string, string>;
+export type PendingFormEdits = {
+  matterId: string;
+  values: Record<string, string>;
+  editedFields: string[];
 };
 
 export const STEP_ONE_FIELDS = [
@@ -30,19 +31,30 @@ export function calculateOutstanding(judgment: string, paid: string): string {
   return Math.max(0, judgmentValue - paidValue).toFixed(2);
 }
 
-export function mergeDraftField(
-  current: FormDraft | null,
-  serverRevision: number,
-  serverFields: Record<string, string>,
+export function mergePendingField(
+  current: PendingFormEdits | null,
+  matterId: string,
   name: string,
   value: string
-): FormDraft {
-  // React 可能批量处理同一轮输入事件；必须从上一个草稿合并，不能用渲染闭包中的旧 fields 覆盖相邻字段。
-  const baseFields = current?.revision === serverRevision ? current.fields : serverFields;
+): PendingFormEdits {
+  // 上传和后台解析会推进服务端 revision；未提交输入按字段保存，不能随权威状态刷新一起丢弃。
+  const base = current?.matterId === matterId
+    ? current
+    : { matterId, values: {}, editedFields: [] };
   return {
-    revision: serverRevision,
-    fields: { ...baseFields, [name]: value }
+    matterId,
+    values: { ...base.values, [name]: value },
+    editedFields: [...new Set([...base.editedFields, name])]
   };
+}
+
+export function applyPendingEdits(
+  serverFields: Record<string, string>,
+  pending: PendingFormEdits | null,
+  matterId: string
+): Record<string, string> {
+  if (pending?.matterId !== matterId) return serverFields;
+  return { ...serverFields, ...pending.values };
 }
 
 export function parseApiError(error: unknown): string {

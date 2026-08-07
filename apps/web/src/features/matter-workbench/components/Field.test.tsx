@@ -4,9 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import { Field } from "./Field";
 
 describe("Field", () => {
-  it("masks sensitive values and requires an explicit source confirmation", () => {
+  it("遮罩敏感值并只展示来源，不渲染逐字段确认或内部状态", () => {
     const onChange = vi.fn();
-    const onConfirmationChange = vi.fn();
     render(
       <Field
         label="身份证号"
@@ -14,9 +13,6 @@ describe("Field", () => {
         value="TEST-ID-APPLICANT"
         onChange={onChange}
         sensitive
-        confirmed={false}
-        onConfirmationChange={onConfirmationChange}
-        status="pending"
         source={{
           document_id: "user",
           parse_revision: null,
@@ -35,24 +31,23 @@ describe("Field", () => {
     fireEvent.blur(input);
     expect(input).toHaveAttribute("type", "password");
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "我已核对当前值与来源" }));
-    expect(onConfirmationChange).toHaveBeenCalledWith("applicant_id", true);
-    expect(screen.getByText(/状态：pending；来源：用户填写/)).toBeVisible();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.getByText("来源：用户填写")).toBeVisible();
+    expect(screen.queryByText(/状态：/)).not.toBeInTheDocument();
   });
 
-  it("does not allow confirming an empty field", () => {
+  it("用户编辑值时展示待保存的用户填写来源", () => {
     render(
       <Field
         label="联系电话"
         name="phone"
-        value=""
+        value="TEST-PHONE"
         onChange={vi.fn()}
-        confirmed={false}
-        onConfirmationChange={vi.fn()}
+        edited
       />
     );
 
-    expect(screen.getByRole("checkbox", { name: "我已核对当前值与来源" })).toBeDisabled();
+    expect(screen.getByText("来源：用户填写（保存后记录）")).toBeVisible();
   });
 
   it("shares the field identity and value binding with multiline controls", () => {
@@ -65,8 +60,6 @@ describe("Field", () => {
         onChange={onChange}
         multiline
         readOnly
-        confirmed
-        onConfirmationChange={vi.fn()}
       />
     );
 

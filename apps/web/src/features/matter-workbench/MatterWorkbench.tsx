@@ -36,8 +36,7 @@ export function MatterWorkbench({ matterId }: { matterId: string }) {
           matter={matter}
           fields={controller.fields}
           onFieldChange={controller.updateField}
-          isFieldConfirmed={controller.isFieldConfirmed}
-          onFieldConfirmationChange={controller.setFieldConfirmed}
+          isFieldEdited={controller.isFieldEdited}
         >
           <main className="workbench-main">
             {controller.error ? <div className="error-banner" role="alert">{controller.error}</div> : null}

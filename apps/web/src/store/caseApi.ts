@@ -128,7 +128,7 @@ export const caseApi = createApi({
         generationId: string;
         expected_revision: number;
         critical_fields_reviewed: true;
-        draft_boundary_understood: true;
+        manual_review_understood: true;
         local_requirements_reviewed: true;
         idempotencyKey: string;
       }

@@ -12,7 +12,7 @@
 
 当前项目的技术方向基本正确：Next.js + RTK Query、FastAPI 模块化单体、单一 Python 包承载 API/worker/migrate、PostgreSQL 任务队列、OpenAPI 契约和本地 Blob 存储，都适合可靠 MVP。主要问题不在选型，而在“方案中的边界没有落实到代码结构”：
 
-1. 前端把页面、工作流编排、服务端状态轮询、表单草稿、错误处理和业务派生集中在一个 408 行组件中，已经形成高耦合工作台。
+1. 前端把页面、工作流编排、服务端状态轮询、未提交表单、错误处理和业务派生集中在一个 408 行组件中，已经形成高耦合工作台。
 2. OpenAPI 虽能生成类型，但运行时仍维护手写领域类型和手写 RTK Query endpoints，存在双事实来源。
 3. 服务端 route、事务、应用用例和领域判断仍混在 `api.py`/`services.py`；worker 的 lease token 没有参与续租和完成时的条件更新，可靠性承诺尚未闭环。
 4. 解析 worker 会在耗时处理后基于陈旧 ORM/JSON 回写候选，存在覆盖用户刚确认字段的竞态；这是当前最紧急的正确性风险。文书生成直接读取可变 ORM `Matter`，则使验证与生成输入缺少可审计的一致性证明。
@@ -27,7 +27,7 @@ GitHub 提交页显示顶层 commit comment 为 0，但文件 diff 中存在 3 �
 | 位置 | 评论 | 架构含义 |
 |---|---|---|
 | `apps/web/src/components/HomePage.tsx:19` | “比较黑盒，不知道这个代码的作用” | 创建事项的 command、适用条件版本、幂等键和错误处理没有通过命名良好的应用 hook 表达。 |
-| `apps/web/src/components/MatterWorkbench.tsx:118` | “应该使MatterWorkbench干净点，只有hooks和UI组件，其他的模块，依赖函数，方法都封装到对应的文件” | 工作台组件承担了查询、mutation、轮询、草稿、步骤门禁和视图渲染，缺少容器/用例/视图分层。 |
+| `apps/web/src/components/MatterWorkbench.tsx:118` | “应该使MatterWorkbench干净点，只有hooks和UI组件，其他的模块，依赖函数，方法都封装到对应的文件” | 工作台组件承担了查询、mutation、轮询、未提交表单、步骤门禁和视图渲染，缺少容器/用例/视图分层。 |
 | `apps/web/src/components/MatterWorkbench.tsx:182` | “这些组件封装到外面，全部依赖的组件都写在一个文件太难阅读，使项目结构也不够语义化” | `UploadControl`、`Field`、四步页面及动作函数都在同一文件，无法从目录判断职责，也不利于独立测试。 |
 
 评论链接：
@@ -48,7 +48,7 @@ GitHub 提交页显示顶层 commit comment 为 0，但文件 diff 中存在 3 �
 | P0 | 产品适用范围未形成结构化服务端规则链 | 当前校验只有必填、确认和金额关系，缺少多当事人、代理人、组织主体、多义务等不可绕过 blocker | 建立规范化 Dossier/ComplexitySignal 和版本化 ProductScopeRules |
 | P1 | 生成读取可变 ORM，而非版本化纯数据输入 | 难以证明生成物与校验上下文完全一致 | 分步建立 `ValidationRunV1`/`GenerationInputV1`，renderer 只读纯数据 |
 | P1 | OpenAPI 与手写类型/endpoints 双轨 | 协议变更可通过生成检查，却仍与真正被 UI 使用的手写类型不一致 | 先强化 Pydantic/OpenAPI schema，再删除手写 shape；是否生成全部 hooks 按收益决定 |
-| P1 | `MatterWorkbench` 是 God Component | 修改任一步骤都会影响轮询、草稿、生成和其他步骤，测试只能走整页 | 拆成 controller hook、步骤 feature、纯 UI 和工作流 presenter |
+| P1 | `MatterWorkbench` 是 God Component | 修改任一步骤都会影响轮询、未提交表单、生成和其他步骤，测试只能走整页 | 拆成 controller hook、步骤 feature、纯 UI 和工作流 presenter |
 | P1 | 前端复制步骤门禁与金额权威逻辑 | 客户端与服务端可能显示不同可达步骤或金额；JS `Number` 不适合法律金额权威计算 | 服务端返回 `step_gates`/`AmountComputation`；前端只做非权威预览 |
 | P1 | route、应用用例、事务和 ORM 混层 | 业务不变量散落，API 与 worker 难复用同一用例 | 按 matters/documents/validation/generation 划分显式 use case 与窄持久化适配器 |
 | P1 | `facts/confirmations/sources` 使用无版本裸 JSON | schema 演进、来源失效和审计规则依赖约定，缺少结构化校验 | MVP 继续用 JSON 列，但写入/读取必须经过版本化 Pydantic snapshot/value object |

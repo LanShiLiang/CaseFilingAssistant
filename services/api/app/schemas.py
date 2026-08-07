@@ -52,7 +52,7 @@ class RevisionRequest(BaseModel):
 class ExportAttestationRequest(RevisionRequest):
     attestation_version: Literal["export_attestation_v1"] = "export_attestation_v1"
     critical_fields_reviewed: Literal[True]
-    draft_boundary_understood: Literal[True]
+    manual_review_understood: Literal[True]
     local_requirements_reviewed: Literal[True]
 
 

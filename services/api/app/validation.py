@@ -186,9 +186,9 @@ def validate_matter(matter: Matter) -> list[ValidationIssue]:
         )
     issues.append(
         ValidationIssue(
-            "draft_only",
+            "manual_review_required",
             "info",
-            "生成文件仅为草稿；系统不会提交法院，用户须自行复核、签章并核对地方要求。",
+            "生成文件必须由用户自行复核、签章并核对地方要求；系统不会提交法院。",
         )
     )
     return issues

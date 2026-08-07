@@ -6,7 +6,7 @@ import type { Matter, SourceReference } from "@case-filing/contracts";
 import { MatterField, MatterFormProvider } from "./MatterForm";
 
 describe("MatterForm", () => {
-  it("从同一上下文绑定字段草稿、来源和本地确认状态", () => {
+  it("从同一上下文绑定未提交字段和来源", () => {
     const source: SourceReference = {
       document_id: "document-1",
       parse_revision: 2,
@@ -23,15 +23,14 @@ describe("MatterForm", () => {
         } as unknown as Matter}
         fields={{ case_number: "（2026）测字第001号" }}
         onFieldChange={vi.fn()}
-        isFieldConfirmed={(name) => name === "case_number"}
-        onFieldConfirmationChange={vi.fn()}
+        isFieldEdited={() => false}
       >
         <MatterField label="案号" name="case_number" />
       </MatterFormProvider>
     );
 
     expect(screen.getByLabelText("案号")).toHaveValue("（2026）测字第001号");
-    expect(screen.getByRole("checkbox", { name: "我已核对当前值与来源" })).toBeChecked();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
     expect(screen.getByText(/材料第 1 页/)).toBeVisible();
   });
 });

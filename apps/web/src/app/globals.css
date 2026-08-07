@@ -79,21 +79,25 @@ a { color: inherit; text-decoration: none; }
 .brand-subtitle { color: var(--muted); font-size: 13px; }
 .local-pill { display: inline-flex; align-items: center; gap: 6px; color: var(--success); font-size: 13px; font-weight: 700; }
 
-.hero-grid { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 36px; padding: 72px 0 44px; }
-.hero-copy h1 { max-width: 800px; margin: 14px 0 18px; font-size: clamp(34px, 5vw, 58px); line-height: 1.08; letter-spacing: -.055em; }
-.hero-copy > p { max-width: 760px; margin: 0; color: var(--muted); font-size: 18px; line-height: 1.8; }
+.hero-section { padding: 64px 0 44px; }
+.hero-heading { max-width: 940px; }
+.hero-heading h1 { margin: 14px 0 18px; font-size: clamp(38px, 5vw, 60px); line-height: 1.08; letter-spacing: -.055em; }
+.hero-heading > p { max-width: 820px; margin: 0; color: var(--muted); font-size: 18px; line-height: 1.8; }
+.hero-support-grid, .home-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, .6fr); gap: 24px; }
+.hero-support-grid { align-items: stretch; margin-top: 28px; }
 .eyebrow, .section-kicker { color: var(--accent); font-weight: 800; font-size: 13px; letter-spacing: .04em; }
 .boundary-note { display: flex; align-items: flex-start; gap: 9px; margin-top: 22px; padding: 14px 16px; border-radius: 10px; background: var(--surface-warm); color: #66533f; font-size: 13px; line-height: 1.65; }
+.hero-support-grid > .boundary-note { align-items: center; margin: 0; }
 .feature-card, .eligibility-card, .recent-card, .panel {
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--surface);
   box-shadow: var(--shadow);
 }
-.feature-card { align-self: end; padding: 26px; border-top: 4px solid var(--accent); }
-.feature-card h2 { margin: 16px 0 8px; font-size: 20px; }
+.feature-card { display: flex; align-items: flex-start; gap: 14px; padding: 22px 24px; border-top: 4px solid var(--accent); }
+.feature-card svg { flex: 0 0 auto; color: var(--brand); }
+.feature-card h2 { margin: 0 0 8px; font-size: 20px; }
 .feature-card p { margin: 0; color: var(--muted); line-height: 1.7; }
-.home-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, .6fr); gap: 24px; }
 .eligibility-card, .recent-card { padding: 28px; }
 .eligibility-card h2, .recent-card h2 { margin: 10px 0 8px; font-size: 23px; }
 .muted { color: var(--muted); }
@@ -158,8 +162,6 @@ a { color: inherit; text-decoration: none; }
 .field-input-row { position: relative; display: flex; }
 .field-input-row .field-reveal { position: absolute; right: 7px; top: 6px; min-height: 31px; border: 0; border-radius: 6px; padding: 0 8px; color: var(--brand); background: var(--surface-soft); cursor: pointer; }
 .field-input-row:has(.field-reveal) input { padding-right: 58px; }
-.field-confirmation { display: flex; align-items: center; gap: 7px; color: var(--ink); font-size: 12px; }
-.field-confirmation input { width: 17px; min-height: 17px; height: 17px; accent-color: var(--brand); }
 .scope-signals { border-color: #e5bd86; background: #fffaf2; }
 .form-field--wide { margin-top: 10px; }
 .amount-row { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 10px; }
@@ -187,9 +189,8 @@ a { color: inherit; text-decoration: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 900px) {
-  .hero-grid, .home-grid { grid-template-columns: 1fr; }
-  .hero-grid { padding-top: 46px; }
-  .feature-card { max-width: 520px; }
+  .hero-support-grid, .home-grid { grid-template-columns: 1fr; }
+  .hero-section { padding-top: 46px; }
   .workbench-grid { grid-template-columns: 1fr; }
   .step-sidebar { position: sticky; top: 70px; z-index: 10; min-height: 0; padding: 10px 14px; border-right: 0; border-bottom: 1px solid var(--line); }
   .step-caption, .step-sidebar > p { display: none; }
@@ -203,9 +204,10 @@ a { color: inherit; text-decoration: none; }
   .landing-shell { padding: 0 16px 40px; }
   .brand-header { min-height: 64px; }
   .brand-subtitle { display: none; }
-  .hero-grid { gap: 22px; padding: 38px 0 28px; }
-  .hero-copy h1 { font-size: 37px; }
-  .hero-copy > p { font-size: 16px; }
+  .hero-section { padding: 38px 0 28px; }
+  .hero-heading h1 { font-size: 37px; }
+  .hero-heading > p { font-size: 16px; }
+  .hero-support-grid { gap: 14px; margin-top: 22px; }
   .eligibility-card, .recent-card, .panel { padding: 18px; border-radius: 14px; }
   .condition-list li { grid-template-columns: 28px 1fr; }
   .condition-list svg { display: none; }

@@ -347,11 +347,6 @@ export interface components {
              * @constant
              */
             critical_fields_reviewed: true;
-            /**
-             * Draft Boundary Understood
-             * @constant
-             */
-            draft_boundary_understood: true;
             /** Expected Revision */
             expected_revision: number;
             /**
@@ -359,6 +354,11 @@ export interface components {
              * @constant
              */
             local_requirements_reviewed: true;
+            /**
+             * Manual Review Understood
+             * @constant
+             */
+            manual_review_understood: true;
         };
         /** GenerationResponse */
         GenerationResponse: {

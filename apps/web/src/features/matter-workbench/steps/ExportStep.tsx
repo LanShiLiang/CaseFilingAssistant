@@ -8,7 +8,7 @@ import type { ExportCheck, ExportCheckValues } from "../types";
 
 const ATTESTATIONS: ReadonlyArray<{ name: ExportCheck; label: string }> = [
   { name: "critical", label: "我已逐项核对姓名、证件号、金额、履行情况和请求事项。" },
-  { name: "draft", label: "我理解所有输出仅为草稿，必须由本人或专业人员复核。" },
+  { name: "review", label: "我理解生成文件必须由本人或专业人员复核，系统未向法院提交。" },
   { name: "local", label: "我已自行核对受理法院及其当前地方材料要求。" }
 ];
 
@@ -33,7 +33,7 @@ export function ExportStep({
     <div className="step-page">
       <StepHeading
         step={4}
-        title="导出草稿材料包"
+        title="导出强制执行申请材料"
         description="最终声明不会改变数据版本，只解锁同一生成记录的下载。"
         icon={<Download size={30} />}
       />
@@ -47,7 +47,7 @@ export function ExportStep({
           </label>
         ))}
         {!generation?.final_confirmed ? <Button variant="primary" disabled={!finalChecked || confirmPending || generation?.status !== "completed"} onClick={() => void onConfirm()}>提交三项声明并解锁下载</Button> : <a className="download-link" href={generation.download_url ?? "#"}><Download size={18} /> 下载申请强制执行材料包（ZIP）</a>}
-        <p className="boundary-note">材料包包含 DOCX、由同一申请书 DOCX 转换的 PDF 预览、材料清单、字段来源核对表和版本清单。所有文件均为草稿，系统未向法院提交。</p>
+        <p className="boundary-note">材料包包含强制执行申请书 DOCX、由同一 DOCX 转换的 PDF 预览、材料清单、字段来源核对表和版本清单。生成文件必须人工复核，系统未向法院提交。</p>
       </section>
       <div className="page-actions"><Button onClick={onBack}>返回预览</Button></div>
     </div>

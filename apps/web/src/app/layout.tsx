@@ -9,7 +9,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Case Filing Assistant",
-  description: "本地申请强制执行材料草稿助手"
+  description: "本地强制执行申请书生成助手"
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

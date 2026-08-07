@@ -5,8 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import type { DocumentKind, ValidationResult } from "@case-filing/contracts";
 
 import {
+  applyPendingEdits,
   calculateOutstanding,
-  mergeDraftField,
+  mergePendingField,
   parseApiError,
   STEP_ONE_FIELDS,
   STEP_TWO_FIELDS
@@ -24,7 +25,7 @@ import {
 } from "@/store/caseApi";
 
 import type { ExportCheck, ExportCheckState, FormState } from "./types";
-import { useMatterReviewState } from "./useMatterReviewState";
+import { useScopeSignalReviewState } from "./useScopeSignalReviewState";
 import { WORKFLOW_STEPS } from "./workflow";
 
 function suggestedStep(allowed: readonly boolean[]): number {
@@ -37,9 +38,9 @@ function suggestedStep(allowed: readonly boolean[]): number {
 
 export function useMatterWorkbenchController(matterId: string) {
   const { data: matter, isLoading, error: queryError, refetch } = useGetMatterQuery(matterId);
-  const review = useMatterReviewState(matter);
+  const scopeReview = useScopeSignalReviewState(matter);
   const [requestedStep, setRequestedStep] = useState<number | null>(null);
-  const [draft, setDraft] = useState<{ revision: number; fields: FormState } | null>(null);
+  const [pendingEdits, setPendingEdits] = useState<ReturnType<typeof mergePendingField> | null>(null);
   const [error, setError] = useState("");
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -47,7 +48,7 @@ export function useMatterWorkbenchController(matterId: string) {
   const [exportChecks, setExportChecks] = useState<ExportCheckState>({
     generationId: "",
     critical: false,
-    draft: false,
+    review: false,
     local: false
   });
   const idempotencyKeys = useRef(new Map<string, string>());
@@ -100,7 +101,7 @@ export function useMatterWorkbenchController(matterId: string) {
     effectiveGenerationId &&
     exportChecks.generationId === effectiveGenerationId &&
     exportChecks.critical &&
-    exportChecks.draft &&
+    exportChecks.review &&
     exportChecks.local
   );
 
@@ -113,9 +114,9 @@ export function useMatterWorkbenchController(matterId: string) {
     ? requestedStep
     : fallbackStep;
 
-  const fields = draft && matter && draft.revision === matter.revision
-    ? draft.fields
-    : matter?.facts ?? {};
+  const fields = matter
+    ? applyPendingEdits(matter.facts, pendingEdits, matter.id)
+    : {};
   const outstanding = calculateOutstanding(
     fields.judgment_amount ?? "",
     fields.paid_amount ?? ""
@@ -127,8 +128,7 @@ export function useMatterWorkbenchController(matterId: string) {
 
   function updateField(name: string, value: string) {
     if (!matter) return;
-    setDraft((current) => mergeDraftField(current, matter.revision, matter.facts, name, value));
-    review.invalidateField(name);
+    setPendingEdits((current) => mergePendingField(current, matter.id, name, value));
   }
 
   function idempotencyKey(scope: string, payload: unknown): string {
@@ -176,9 +176,7 @@ export function useMatterWorkbenchController(matterId: string) {
         .filter((name) => includeMissing || values[name] !== undefined)
         .map((name) => [name, values[name] ?? ""])
     );
-    const confirmedFields = names.filter(
-      (name) => Boolean(payload[name]?.trim()) && review.isFieldConfirmed(name)
-    );
+    const confirmedFields = names.filter((name) => Boolean(payload[name]?.trim()));
     await runMutation(
       () =>
         saveFacts({
@@ -196,7 +194,7 @@ export function useMatterWorkbenchController(matterId: string) {
           })
         }).unwrap(),
       () => {
-        setDraft(null);
+        setPendingEdits(null);
         if (resetValidation) setValidation(null);
         setRequestedStep(nextStep);
       }
@@ -223,9 +221,8 @@ export function useMatterWorkbenchController(matterId: string) {
         }).unwrap(),
       async (result) => {
         setJobId(result.job_id);
-        setDraft(null);
         setValidation(null);
-        review.reset();
+        scopeReview.reset();
         await refetch();
       }
     );
@@ -239,7 +236,7 @@ export function useMatterWorkbenchController(matterId: string) {
       names,
       values: fields,
       includeMissing: false,
-      dismissedScopeSignalIds: review.dismissedScopeSignalIds,
+      dismissedScopeSignalIds: scopeReview.dismissedScopeSignalIds,
       nextStep: 2
     });
   }
@@ -305,7 +302,7 @@ export function useMatterWorkbenchController(matterId: string) {
           generationId: effectiveGenerationId,
           expected_revision: matter.revision,
           critical_fields_reviewed: true,
-          draft_boundary_understood: true,
+          manual_review_understood: true,
           local_requirements_reviewed: true,
           idempotencyKey: idempotencyKey("export-attestation", {
             generationId: effectiveGenerationId,
@@ -355,12 +352,15 @@ export function useMatterWorkbenchController(matterId: string) {
     generationPending: generationStartState.isLoading,
     confirmPending: confirmState.isLoading,
     retryPending: retryState.isLoading,
-    isFieldConfirmed: review.isFieldConfirmed,
-    dismissedScopeSignalIds: review.dismissedScopeSignalIds,
+    isFieldEdited: (name: string) => Boolean(
+      pendingEdits && matter &&
+      pendingEdits.matterId === matter.id &&
+      pendingEdits.editedFields.includes(name)
+    ),
+    dismissedScopeSignalIds: scopeReview.dismissedScopeSignalIds,
     navigate,
     updateField,
-    setFieldConfirmed: review.setFieldConfirmed,
-    setScopeSignalDismissed: review.setScopeSignalDismissed,
+    setScopeSignalDismissed: scopeReview.setScopeSignalDismissed,
     handleUpload,
     saveStepOne,
     saveStepTwo,
@@ -373,7 +373,7 @@ export function useMatterWorkbenchController(matterId: string) {
       setExportChecks((current) => ({
         ...(current.generationId === effectiveGenerationId
           ? current
-          : { generationId: effectiveGenerationId ?? "", critical: false, draft: false, local: false }),
+          : { generationId: effectiveGenerationId ?? "", critical: false, review: false, local: false }),
         [name]: checked
       }))
   };

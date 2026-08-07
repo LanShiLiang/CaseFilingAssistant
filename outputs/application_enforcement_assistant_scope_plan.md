@@ -4,9 +4,9 @@ Update note (2026-08-06): the current MVP is a local self-service tool limited t
 
 ## 1. Purpose
 
-Build a legal-document assistant focused exclusively on Mainland China legal and judicial rules. The initial MVP helps users generate a draft-only application-for-enforcement material package from uploaded legal documents for submission to a Mainland China people's court by the user or their authorized representative.
+Build a legal-document assistant focused exclusively on Mainland China legal and judicial rules. The initial MVP helps users generate a review-required application-for-enforcement material package from uploaded legal documents for submission to a Mainland China people's court by the user or their authorized representative.
 
-The assistant must not submit filings, pay fees, serve documents, contact courts, contact opposing parties, or represent that a filing is legally sufficient. Its role is to organize source materials, extract court-relevant facts, generate draft materials, flag missing requirements, and prepare a review-ready export.
+The assistant must not submit filings, pay fees, serve documents, contact courts, contact opposing parties, or represent that a filing is legally sufficient. Its role is to organize source materials, extract court-relevant facts, generate application materials, flag missing requirements, and prepare a review-ready export.
 
 ## 2. Mainland China Scope Boundary
 
@@ -110,15 +110,15 @@ Source governance requirements:
 6. User reviews and confirms facts in Simplified Chinese.
 7. System runs Mainland China rules-pack readiness checks.
 8. User resolves gaps or marks them as accepted exceptions.
-9. System generates draft application-for-enforcement materials from approved templates.
-10. User reviews drafts with highlighted source-backed facts and editable sections.
+9. System generates application-for-enforcement materials from approved templates.
+10. User reviews generated files with highlighted source-backed facts and editable sections.
 11. System exports a review-ready material package.
 
 ## 6. Product Guardrails
 
-- Display "draft only / not filed" status throughout the workflow.
+- Display "manual review required / not filed" status throughout the workflow.
 - Require user confirmation for all legally material facts.
-- Require a source citation or explicit user-entered value for every factual assertion in the generated drafts.
+- Require a source citation or explicit user-entered value for every factual assertion in the generated files.
 - Separate uploaded-source facts, user-entered facts, rule-pack requirements, and legal-review notes.
 - Do not infer effectiveness, finality, enforceability, jurisdiction, limitation-period compliance, identity authority, or agent authority without supporting source material and reviewer confirmation.
 - Flag uncertainty instead of resolving it silently.
@@ -214,7 +214,7 @@ Each rules pack should be court/scenario specific where needed and include:
 - Known respondent property clues captured where supplied.
 - Required local court materials configured or local-court gap warning shown.
 - Exhibits are numbered, referenced, and present.
-- Generated drafts contain no unresolved placeholders.
+- Generated files contain no unresolved placeholders.
 - User has reviewed all high-impact facts and validation warnings.
 
 ## 11. Implementation Phases
@@ -242,7 +242,7 @@ Each rules pack should be court/scenario specific where needed and include:
 - Implement versioned `强制执行申请书` and materials-list templates.
 - Add confirmed-fact workflow.
 - Add amount calculation worksheet and reviewer confirmation.
-- Generate DOCX/PDF draft package.
+- Generate a DOCX/PDF application package that requires manual review.
 - Add exhibit/materials index generation.
 - Add validation workflow and export blocking for critical unresolved issues.
 
@@ -316,13 +316,13 @@ Each rules pack should be court/scenario specific where needed and include:
 
 ## 16. Recommended First Release Definition
 
-The first release should be a private beta for one Mainland China court or local court cluster and one enforcement scenario. It should produce a draft `强制执行申请书` package from uploaded materials, with source-backed facts, Mainland China rules-pack validation, a materials/exhibit index, a calculation worksheet, and a human-review export step. It should not file, serve, message, upload, or submit anything externally.
+The first release should be a private beta for one Mainland China court or local court cluster and one enforcement scenario. It should produce a `强制执行申请书` package from uploaded materials, with source-backed facts, Mainland China rules-pack validation, a materials/exhibit index, a calculation worksheet, and a human-review export step. It should not file, serve, message, upload, or submit anything externally.
 
 Success criteria:
 
-- The assistant can process a complete synthetic Mainland China enforcement matter and generate a coherent draft package.
+- The assistant can process a complete synthetic Mainland China enforcement matter and generate a coherent application package.
 - At least 95% of generated factual assertions are linked to confirmed facts, approved rule-pack entries, or user-entered values.
 - Every rule-pack checklist item maps to an official source and a legal-review status.
 - Critical missing information blocks clean export or is explicitly acknowledged by the reviewer.
-- A reviewer can trace every material fact in the draft back to uploaded sources.
+- A reviewer can trace every material fact in the generated files back to uploaded sources.
 - Template and rule-pack versions, official-source references, and retrieval dates are visible in the export audit log.

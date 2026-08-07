@@ -29,7 +29,7 @@ export function PartiesAndBasisStep(props: PartiesAndBasisStepProps) {
       <StepHeading
         step={1}
         title="当事人与执行依据"
-        description="上传后先得到候选值，保存本步骤代表逐项人工确认。"
+        description="上传后先得到候选值；保存本步骤表示已核对并确认当前非空字段。"
         icon={<FileSearch size={30} />}
       />
       <section className="panel">

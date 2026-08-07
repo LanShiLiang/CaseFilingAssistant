@@ -2,9 +2,9 @@
 
 import { type ChangeEvent, useId, useState } from "react";
 
-import type { ConfirmationState, SourceReference } from "@case-filing/contracts";
+import type { SourceReference } from "@case-filing/contracts";
 
-import type { FieldChangeHandler, FieldConfirmationHandler } from "../types";
+import type { FieldChangeHandler } from "../types";
 
 export interface FieldProps {
   label: string;
@@ -17,10 +17,8 @@ export interface FieldProps {
   hint?: string | undefined;
   multiline?: boolean;
   sensitive?: boolean;
-  confirmed: boolean;
-  onConfirmationChange: FieldConfirmationHandler;
+  edited?: boolean;
   source?: SourceReference | undefined;
-  status?: ConfirmationState | undefined;
 }
 
 export function Field({
@@ -34,14 +32,17 @@ export function Field({
   hint,
   multiline = false,
   sensitive = false,
-  confirmed,
-  onConfirmationChange,
-  source,
-  status
+  edited = false,
+  source
 }: FieldProps) {
   const id = useId();
   const [revealed, setRevealed] = useState(false);
   const inputType = sensitive && !revealed ? "password" : type;
+  const sourceDescription = source?.document_id === "user"
+    ? "用户填写"
+    : source
+      ? `材料第 ${source.page ?? "?"} 页 · ${source.snippet}`
+      : "";
   const controlProps = {
     id,
     name,
@@ -79,21 +80,10 @@ export function Field({
           </button>
         ) : null}
       </div>
-      <label className="field-confirmation">
-        <input
-          type="checkbox"
-          checked={confirmed}
-          disabled={!value.trim()}
-          onChange={(event) => onConfirmationChange(name, event.target.checked)}
-        />
-        <span>我已核对当前值与来源</span>
-      </label>
-      <small>
-        状态：{status ?? "pending"}；来源：
-        {source
-          ? `${source.document_id === "user" ? "用户填写" : `材料第 ${source.page ?? "?"} 页`} · ${source.snippet}`
-          : "暂无来源，请人工填写并核对"}
-      </small>
+      {edited ? <small>来源：用户填写（保存后记录）</small> : null}
+      {!edited && source ? (
+        <small>来源：{sourceDescription}</small>
+      ) : null}
       {hint ? <small>{hint}</small> : null}
     </div>
   );

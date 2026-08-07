@@ -1,0 +1,4 @@
+interface:
+  display_name: "保护版本化表单输入"
+  short_description: "防止上传、轮询和后台解析刷新覆盖用户尚未保存的表单输入"
+  default_prompt: "Use $preserve-revisioned-form-input to change a revisioned form without losing unsaved user input."

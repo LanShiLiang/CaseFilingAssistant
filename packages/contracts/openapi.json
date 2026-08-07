@@ -167,11 +167,6 @@
             "title": "Critical Fields Reviewed",
             "type": "boolean"
           },
-          "draft_boundary_understood": {
-            "const": true,
-            "title": "Draft Boundary Understood",
-            "type": "boolean"
-          },
           "expected_revision": {
             "minimum": 1.0,
             "title": "Expected Revision",
@@ -181,12 +176,17 @@
             "const": true,
             "title": "Local Requirements Reviewed",
             "type": "boolean"
+          },
+          "manual_review_understood": {
+            "const": true,
+            "title": "Manual Review Understood",
+            "type": "boolean"
           }
         },
         "required": [
           "expected_revision",
           "critical_fields_reviewed",
-          "draft_boundary_understood",
+          "manual_review_understood",
           "local_requirements_reviewed"
         ],
         "title": "ExportAttestationRequest",

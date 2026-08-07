@@ -5,18 +5,13 @@ import { createContext, useContext, type PropsWithChildren } from "react";
 import type { Matter } from "@case-filing/contracts";
 
 import { Field, type FieldProps } from "./components/Field";
-import type {
-  FieldChangeHandler,
-  FieldConfirmationHandler,
-  FormState
-} from "./types";
+import type { FieldChangeHandler, FormState } from "./types";
 
 interface MatterFormContextValue {
   matter: Matter;
   fields: FormState;
   onFieldChange: FieldChangeHandler;
-  isFieldConfirmed: (name: string) => boolean;
-  onFieldConfirmationChange: FieldConfirmationHandler;
+  isFieldEdited: (name: string) => boolean;
 }
 
 const MatterFormContext = createContext<MatterFormContextValue | null>(null);
@@ -37,10 +32,8 @@ export function useMatterForm(): MatterFormContextValue {
 type ContextBoundFieldProps =
   | "value"
   | "onChange"
-  | "confirmed"
-  | "onConfirmationChange"
-  | "source"
-  | "status";
+  | "edited"
+  | "source";
 
 export type MatterFieldProps = Omit<FieldProps, ContextBoundFieldProps> & {
   valueOverride?: string;
@@ -56,8 +49,7 @@ export function MatterField({
     matter,
     fields,
     onFieldChange,
-    isFieldConfirmed,
-    onFieldConfirmationChange
+    isFieldEdited
   } = useMatterForm();
   return (
     <Field
@@ -65,10 +57,8 @@ export function MatterField({
       name={name}
       value={valueOverride ?? fields[name] ?? ""}
       onChange={onFieldChange}
-      confirmed={isFieldConfirmed(name)}
-      onConfirmationChange={onFieldConfirmationChange}
+      edited={isFieldEdited(name)}
       source={matter.sources[name]?.[0]}
-      status={matter.confirmations[name]}
     />
   );
 }

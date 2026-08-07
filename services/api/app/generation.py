@@ -111,7 +111,7 @@ def _configure_document(document: WordDocument, generated_at: datetime) -> None:
 
     footer = section.footer.paragraphs[0]
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = footer.add_run("草稿 · 未提交法院 · 请人工复核")
+    run = footer.add_run("需人工复核 · 未提交法院")
     _set_run_font(run, size=9)
 
 
@@ -164,7 +164,7 @@ def build_application_docx(context: GenerationContext) -> bytes:
     facts = context.facts
     document = WordDocument()
     _configure_document(document, context.generated_at)
-    _add_title(document, "申请执行书（草稿）")
+    _add_title(document, "强制执行申请书")
     _add_label_paragraph(document, "申请执行人：", facts["applicant_name"])
     _add_label_paragraph(document, "身份证号：", facts["applicant_id"])
     _add_label_paragraph(document, "送达地址：", facts["service_address"])
@@ -190,7 +190,7 @@ def build_application_docx(context: GenerationContext) -> bytes:
     reason = (
         f"{facts['rendering_court']}作出的{facts['document_type']}"
         f"（案号：{facts['case_number']}，文书日期：{document_date}）已经确定金钱给付义务。"
-        f"截至本草稿生成时，文书确定金额为人民币{Decimal(facts['judgment_amount']):,.2f}元，"
+        f"截至本次生成时，文书确定金额为人民币{Decimal(facts['judgment_amount']):,.2f}元，"
         f"已履行人民币{Decimal(facts['paid_amount']):,.2f}元，尚未履行人民币{amount:,.2f}元。"
         "上述金额和履行情况均由申请执行人根据材料人工确认。现申请依法强制执行。"
     )
@@ -241,11 +241,11 @@ def _keep_row_together(row, *, repeat_header: bool = False) -> None:
 def build_material_list_docx(context: GenerationContext) -> bytes:
     document = WordDocument()
     _configure_document(document, context.generated_at)
-    _add_title(document, "申请强制执行材料清单（草稿）")
+    _add_title(document, "强制执行申请材料清单")
     _add_label_paragraph(document, "事项案号：", context.facts["case_number"])
 
     rows = [
-        ("1", "申请执行书", "系统生成草稿，打印后需人工复核并签名"),
+        ("1", "强制执行申请书", "系统生成，打印前需人工复核并签名"),
         ("2", context.facts["document_type"], "执行依据，请按目标法院要求准备份数"),
         ("3", "申请执行人身份证明", "身份证正反面复印件；必要时核对原件要求"),
         ("4", "履行情况材料", "如存在已履行金额，附付款或收款记录"),
@@ -369,7 +369,7 @@ def build_preview_pdf(application_docx: bytes, context: GenerationContext) -> by
         fixed = context.generated_at.replace(microsecond=0).isoformat()
         writer.add_metadata(
             {
-                "/Title": "申请执行书（草稿）",
+                "/Title": "强制执行申请书",
                 "/Author": "Case Filing Assistant",
                 "/CreationDate": fixed,
                 "/ModDate": fixed,
@@ -397,14 +397,14 @@ def generate_package(context: GenerationContext) -> GeneratedPackage:
         "template_version": context.template_version,
         "rule_set_version": context.rule_set_version,
         "generated_at": context.generated_at.replace(microsecond=0).isoformat(),
-        "draft_only": True,
+        "requires_manual_review": True,
         "files": {},
     }
     files = {
-        "申请执行书_草稿.docx": application,
-        "材料清单_草稿.docx": checklist,
+        "强制执行申请书.docx": application,
+        "强制执行申请材料清单.docx": checklist,
         "字段来源核对表_内部审阅.docx": source_audit,
-        "申请执行书_预览.pdf": preview,
+        "强制执行申请书.pdf": preview,
     }
     # 清单同时固定规则/模板版本和逐文件摘要，便于人工审阅时核对材料包是否被替换。
     manifest["files"] = {

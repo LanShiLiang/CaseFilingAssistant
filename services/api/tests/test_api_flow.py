@@ -46,7 +46,7 @@ def upload(
     return response.json()
 
 
-def test_full_draft_generation_flow(api_harness: ApiHarness) -> None:
+def test_full_application_generation_flow(api_harness: ApiHarness) -> None:
     matter = create_matter(api_harness)
     matter_id = matter["id"]
     assert matter["display_title"] == "待上传执行依据"
@@ -168,7 +168,7 @@ def test_full_draft_generation_flow(api_harness: ApiHarness) -> None:
             "expected_revision": matter["revision"],
             "attestation_version": "export_attestation_v1",
             "critical_fields_reviewed": True,
-            "draft_boundary_understood": True,
+            "manual_review_understood": True,
             "local_requirements_reviewed": True,
         },
     )
@@ -180,17 +180,17 @@ def test_full_draft_generation_flow(api_harness: ApiHarness) -> None:
     with zipfile.ZipFile(io.BytesIO(package.content)) as archive:
         names = set(archive.namelist())
         assert {
-            "申请执行书_草稿.docx",
-            "材料清单_草稿.docx",
+            "强制执行申请书.docx",
+            "强制执行申请材料清单.docx",
             "字段来源核对表_内部审阅.docx",
-            "申请执行书_预览.pdf",
+            "强制执行申请书.pdf",
             "manifest.json",
         } <= names
         manifest = json.loads(archive.read("manifest.json"))
-        assert manifest["draft_only"] is True
+        assert manifest["requires_manual_review"] is True
         assert manifest["revision"] == matter["revision"]
-        application = WordDocument(io.BytesIO(archive.read("申请执行书_草稿.docx")))
-        assert "申请执行书（草稿）" in "\n".join(p.text for p in application.paragraphs)
+        application = WordDocument(io.BytesIO(archive.read("强制执行申请书.docx")))
+        assert "强制执行申请书" in "\n".join(p.text for p in application.paragraphs)
 
     with api_harness.app.state.database.session_factory() as session:
         stored_generation = session.get(Generation, generation_id)

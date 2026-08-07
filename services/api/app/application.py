@@ -414,7 +414,7 @@ def get_generation_artifact(
         if generation.status != "completed" or generation.revision != matter.revision:
             raise DomainError("generation_superseded", "预览版本已失效。", 409)
         media_type = "application/pdf"
-        filename = "申请执行书_草稿预览.pdf"
+        filename = "强制执行申请书.pdf"
         expected_sha256 = generation.preview_sha256
         expected_size = generation.preview_size_bytes
     elif kind == "download":
@@ -429,7 +429,7 @@ def get_generation_artifact(
         ):
             raise DomainError("download_locked", "请先预览并确认当前版本。", 409)
         media_type = "application/zip"
-        filename = "申请强制执行材料包_草稿.zip"
+        filename = "强制执行申请材料包.zip"
         expected_sha256 = generation.sha256
         expected_size = generation.package_size_bytes
     else:
